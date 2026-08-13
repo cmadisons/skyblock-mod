@@ -2,18 +2,14 @@ package com.example;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.block.entity.ChestBlockEntity;
 
 /**
- * Builds a starting island: the dirt platform, a tree, and the chest that gets
- * you going.
+ * Builds a starting island: the dirt platform and a tree.
  *
- * The layout is the classic one. Small on purpose -- the whole point is that
- * you have almost nothing and have to stretch it.
+ * The layout is the classic one, minus the starting chest: no lava, no ice, no
+ * seeds. Small on purpose -- the whole point is that you have almost nothing
+ * and have to stretch it.
  */
 public final class Island {
 	private Island() {
@@ -39,9 +35,23 @@ public final class Island {
 		}
 
 		tree(level, centre.offset(-1, 1, -1));
-		chest(level, centre.offset(1, 1, 1));
+		walkway(level, centre);
 
 		return centre.above();
+	}
+
+	/**
+	 * The path out to the portal, and the portal itself.
+	 *
+	 * The portal stands ten blocks from the middle of the island, as it does on
+	 * Hypixel. Without this path there would be nothing but void between the
+	 * two, so the walkway is what makes it reachable at all.
+	 */
+	private static void walkway(ServerLevel level, BlockPos centre) {
+		for (int dz = RADIUS + 1; dz < 10; dz++) {
+			level.setBlockAndUpdate(centre.offset(0, 0, dz), Blocks.POLISHED_ANDESITE.defaultBlockState());
+		}
+		Portals.frame(level, Portals.islandPortal());
 	}
 
 	/** A small oak, hand-placed rather than grown so it is always the same. */
@@ -76,27 +86,4 @@ public final class Island {
 		}
 	}
 
-	/**
-	 * The starting chest. Lava and ice are the important pair: put them
-	 * together and you get cobblestone, which is the only block you can make
-	 * an unlimited amount of.
-	 */
-	private static void chest(ServerLevel level, BlockPos pos) {
-		level.setBlockAndUpdate(pos, Blocks.CHEST.defaultBlockState());
-
-		BlockEntity be = level.getBlockEntity(pos);
-		if (!(be instanceof ChestBlockEntity box)) {
-			return;             // something else got placed there; nothing to fill
-		}
-		box.setItem(0, new ItemStack(Items.LAVA_BUCKET));
-		box.setItem(1, new ItemStack(Items.ICE, 2));
-		box.setItem(2, new ItemStack(Items.OAK_SAPLING, 2));
-		box.setItem(3, new ItemStack(Items.BONE_MEAL, 8));
-		box.setItem(4, new ItemStack(Items.WHEAT_SEEDS, 3));
-		box.setItem(5, new ItemStack(Items.PUMPKIN_SEEDS));
-		box.setItem(6, new ItemStack(Items.MELON_SEEDS));
-		box.setItem(7, new ItemStack(Items.RED_MUSHROOM));
-		box.setItem(8, new ItemStack(Items.BROWN_MUSHROOM));
-		box.setChanged();
-	}
 }

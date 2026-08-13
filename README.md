@@ -13,18 +13,24 @@ an empty void, with a tree, a chest, and nothing else.
 
 You land on a 5×5 dirt platform with an oak tree and a chest.
 
-## What's in the chest
+## What you get
 
-| | Why |
-|---|---|
-| 🪣 Lava bucket | the important one |
-| 🧊 Ice ×2 | melt it next to the lava |
-| 🌱 Oak sapling ×2, bone meal ×8 | grow more wood |
-| 🌾 Wheat, 🎃 pumpkin, 🍈 melon seeds | food |
-| 🍄 Red and brown mushroom | stew, and for growing more |
+A **5×5 grass island** with an **oak tree**, a walkway, and a **portal ten
+blocks away** that takes you to the **Hub** — the same start as Hypixel's
+private island.
 
-**Lava plus water makes cobblestone**, and it's the only block you can make an
-unlimited amount of. Everything else has to be stretched.
+There is **no starting chest**. No lava, no ice, no seeds. Just the tree.
+
+## The Hub
+
+Step into the portal and you arrive at a stone plaza with lamps, four market
+stalls, and a portal back to your island. It's built the first time somebody
+goes through, so a world where you never use the portal stays empty.
+
+## Survival only
+
+In Creative or Hardcore this mod does nothing at all — no island, no portals,
+no commands. Creative would defeat the point of a game about having nothing.
 
 ## Commands
 

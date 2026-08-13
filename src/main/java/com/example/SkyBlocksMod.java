@@ -4,6 +4,7 @@ import com.mojang.brigadier.CommandDispatcher;
 
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 
 import net.minecraft.commands.CommandSourceStack;
@@ -13,6 +14,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
 
 import org.slf4j.Logger;
@@ -29,8 +31,11 @@ import org.slf4j.LoggerFactory;
  * World screen because a tag adds it to the vanilla list.
  *
  * The island is the code here. An empty void has nothing to stand on, so when
- * you first join a void world this drops in the classic starting island and
- * puts you on top of it. Everything after that is up to you.
+ * you first join a void world this drops in the starting island -- 5x5 grass, a
+ * tree, and a walkway out to a portal ten blocks away. Step into the portal and
+ * you are taken to the Hub, which is built the first time anyone goes through.
+ *
+ * All of it is Survival-only. In Creative or Hardcore the mod does nothing.
  */
 public class SkyBlocksMod implements ModInitializer {
 	public static final String MOD_ID = "skyblocks";
@@ -43,6 +48,15 @@ public class SkyBlocksMod implements ModInitializer {
 	public void onInitialize() {
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> onJoin(handler.getPlayer()));
 		CommandRegistrationCallback.EVENT.register((dispatcher, access, env) -> registerCommands(dispatcher));
+		// Portals aren't real blocks, so somebody has to watch for a player
+		// standing in one. See Portals.tick -- it is deliberately cheap.
+		ServerTickEvents.END_SERVER_TICK.register(server -> {
+			for (ServerLevel world : server.getAllLevels()) {
+				if (world.dimension() == Level.OVERWORLD) {
+					Portals.tick(world);
+				}
+			}
+		});
 		LOGGER.info("Sky Blocks loaded.");
 	}
 
@@ -59,6 +73,9 @@ public class SkyBlocksMod implements ModInitializer {
 		if (level == null || level.dimension() != Level.OVERWORLD) {
 			return;
 		}
+		if (!allowed(player, level)) {
+			return;
+		}
 		if (!level.getBlockState(HOME).isAir() || !isVoid(level)) {
 			return;
 		}
@@ -66,8 +83,23 @@ public class SkyBlocksMod implements ModInitializer {
 		BlockPos stand = Island.build(level, HOME);
 		player.teleportTo(stand.getX() + 0.5, stand.getY(), stand.getZ() + 0.5);
 		player.sendSystemMessage(Component.literal(
-				"Welcome to Sky Blocks. Lava and ice make cobblestone — that's your whole world."));
+				"Welcome to Sky Blocks. Through the portal is the Hub."));
 		LOGGER.info("Built the starting island at {}", HOME);
+	}
+
+	/**
+	 * Sky Blocks runs in Survival only.
+	 *
+	 * Creative would make the whole thing pointless -- the game is about having
+	 * almost nothing, and Creative hands you everything. Hardcore is excluded
+	 * too. In either mode this mod does nothing whatsoever: no island, no
+	 * commands, exactly as if it weren't installed.
+	 */
+	public static boolean allowed(ServerPlayer player, ServerLevel level) {
+		if (level.getLevelData().isHardcore()) {
+			return false;
+		}
+		return player.gameMode() == GameType.SURVIVAL;
 	}
 
 	/**
@@ -94,6 +126,11 @@ public class SkyBlocksMod implements ModInitializer {
 						.executes(ctx -> {
 							ServerPlayer player = ctx.getSource().getPlayerOrException();
 							ServerLevel level = ctx.getSource().getLevel();
+							if (!allowed(player, level)) {
+								ctx.getSource().sendFailure(Component.literal(
+										"Sky Blocks only works in Survival."));
+								return 0;
+							}
 							// Built at your feet, so it appears where you are looking.
 							BlockPos where = player.blockPosition().below();
 							BlockPos stand = Island.build(level, where);
