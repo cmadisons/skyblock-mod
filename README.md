@@ -11,7 +11,7 @@ an empty void, with a tree, a chest, and nothing else.
 2. Click **World Type** until it reads **Sky Blocks**
 3. Create
 
-You land on a 5×5 dirt platform with an oak tree and a chest.
+Make sure the game mode is **Survival** — this mod does nothing in Creative.
 
 ## What you get
 
