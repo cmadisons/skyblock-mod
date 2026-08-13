@@ -1,3 +1,9 @@
 {
-  "generator.skyblocks.sky_blocks": "Sky Blocks"
+  "generator.skyblocks.sky_blocks": "Sky Blocks",
+  "block.skyblocks.wooden_cobblestone_minion": "Wooden Cobblestone Minion",
+  "block.skyblocks.stone_cobblestone_minion": "Stone Cobblestone Minion",
+  "block.skyblocks.golden_cobblestone_minion": "Golden Cobblestone Minion",
+  "block.skyblocks.iron_cobblestone_minion": "Iron Cobblestone Minion",
+  "block.skyblocks.diamond_cobblestone_minion": "Diamond Cobblestone Minion",
+  "block.skyblocks.netherite_cobblestone_minion": "Netherite Cobblestone Minion"
 }

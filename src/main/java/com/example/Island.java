@@ -5,7 +5,8 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Blocks;
 
 /**
- * Builds a starting island: the dirt platform and a tree.
+ * Builds a starting island: the dirt platform, a tree, and a cobblestone
+ * minion with a chest to fill.
  *
  * The layout is the classic one, minus the starting chest: no lava, no ice, no
  * seeds. Small on purpose -- the whole point is that you have almost nothing
@@ -35,22 +36,21 @@ public final class Island {
 		}
 
 		tree(level, centre.offset(-1, 1, -1));
-		walkway(level, centre);
+		minion(level, centre);
 
 		return centre.above();
 	}
 
 	/**
-	 * The path out to the portal, and the portal itself.
+	 * The cobblestone minion, and the chest it fills.
 	 *
-	 * The portal stands ten blocks from the middle of the island, as it does on
-	 * Hypixel. Without this path there would be nothing but void between the
-	 * two, so the walkway is what makes it reachable at all.
+	 * This is the only thing you start with, and it is what gets you off the
+	 * island: there is no bridge to the portal, so you have to build one out of
+	 * what the minion makes.
 	 */
-	private static void walkway(ServerLevel level, BlockPos centre) {
-		for (int dz = RADIUS + 1; dz < 10; dz++) {
-			level.setBlockAndUpdate(centre.offset(0, 0, dz), Blocks.POLISHED_ANDESITE.defaultBlockState());
-		}
+	private static void minion(ServerLevel level, BlockPos centre) {
+		level.setBlockAndUpdate(centre.offset(1, 1, 1), Minions.MINIONS[0].defaultBlockState());
+		level.setBlockAndUpdate(centre.offset(2, 1, 1), Blocks.CHEST.defaultBlockState());
 		Portals.frame(level, Portals.islandPortal());
 	}
 

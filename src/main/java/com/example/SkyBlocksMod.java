@@ -46,8 +46,13 @@ public class SkyBlocksMod implements ModInitializer {
 
 	@Override
 	public void onInitialize() {
+		Minions.register();
+		Skills.registerHooks();
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> onJoin(handler.getPlayer()));
-		CommandRegistrationCallback.EVENT.register((dispatcher, access, env) -> registerCommands(dispatcher));
+		CommandRegistrationCallback.EVENT.register((dispatcher, access, env) -> {
+			registerCommands(dispatcher);
+			Economy.registerCommands(dispatcher);
+		});
 		// Portals aren't real blocks, so somebody has to watch for a player
 		// standing in one. See Portals.tick -- it is deliberately cheap.
 		ServerTickEvents.END_SERVER_TICK.register(server -> {
