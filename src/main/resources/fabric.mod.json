@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "id": "skyblocks",
+  "version": "${version}",
+  "name": "Sky Blocks",
+  "description": "Turns a world into Sky Blocks: pick the Sky Blocks world type and you start on a tiny island in an empty void with a tree and a chest. Lava and ice make cobblestone \u2014 stretch it as far as you can.",
+  "authors": [
+    "Starbr0"
+  ],
+  "contact": {
+    "homepage": "https://cmadisons.github.io/arcade/",
+    "sources": "https://github.com/cmadisons/skyblock-mod"
+  },
+  "license": "CC0-1.0",
+  "icon": "assets/skyblocks/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "com.example.SkyBlocksMod"
+    ],
+    "client": [
+      "com.example.client.SkyBlocksClient"
+    ]
+  },
+  "mixins": [
+    "skyblocks.mixins.json",
+    {
+      "config": "skyblocks.client.mixins.json",
+      "environment": "client"
+    }
+  ],
+  "depends": {
+    "fabricloader": ">=0.19.3",
+    "minecraft": "~26.1.2",
+    "java": ">=25",
+    "fabric-api": "*"
+  },
+  "suggests": {
+    "modmenu": "*"
+  }
+}

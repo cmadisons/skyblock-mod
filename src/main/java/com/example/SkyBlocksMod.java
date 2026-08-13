@@ -1,0 +1,110 @@
+package com.example;
+
+import com.mojang.brigadier.CommandDispatcher;
+
+import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
+
+import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.commands.Commands;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.Level;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+/**
+ * Sky Blocks: turns a world into the survival-on-a-tiny-island game.
+ *
+ * There are two halves to this mod.
+ *
+ * The world itself is a data file, not code -- worldgen/world_preset/
+ * sky_blocks.json describes an overworld with no layers at all, which is to say
+ * an empty void. It shows up as a world type called "Sky Blocks" on the Create
+ * World screen because a tag adds it to the vanilla list.
+ *
+ * The island is the code here. An empty void has nothing to stand on, so when
+ * you first join a void world this drops in the classic starting island and
+ * puts you on top of it. Everything after that is up to you.
+ */
+public class SkyBlocksMod implements ModInitializer {
+	public static final String MOD_ID = "skyblocks";
+	public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
+
+	/** Where the first island is built, and where you spawn. */
+	private static final BlockPos HOME = new BlockPos(0, 64, 0);
+
+	@Override
+	public void onInitialize() {
+		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> onJoin(handler.getPlayer()));
+		CommandRegistrationCallback.EVENT.register((dispatcher, access, env) -> registerCommands(dispatcher));
+		LOGGER.info("Sky Blocks loaded.");
+	}
+
+	/**
+	 * Give a new arrival somewhere to stand.
+	 *
+	 * Only fires when the world really is empty -- joining a normal world does
+	 * nothing at all, so installing this mod can't wreck a world you already
+	 * have. Once an island exists the check below stops matching, so it never
+	 * builds twice.
+	 */
+	private static void onJoin(ServerPlayer player) {
+		ServerLevel level = player.level() instanceof ServerLevel s ? s : null;
+		if (level == null || level.dimension() != Level.OVERWORLD) {
+			return;
+		}
+		if (!level.getBlockState(HOME).isAir() || !isVoid(level)) {
+			return;
+		}
+
+		BlockPos stand = Island.build(level, HOME);
+		player.teleportTo(stand.getX() + 0.5, stand.getY(), stand.getZ() + 0.5);
+		player.sendSystemMessage(Component.literal(
+				"Welcome to Sky Blocks. Lava and ice make cobblestone — that's your whole world."));
+		LOGGER.info("Built the starting island at {}", HOME);
+	}
+
+	/**
+	 * Is this world actually empty?
+	 *
+	 * Checked by looking straight down the column at spawn. A void world has
+	 * nothing in it anywhere; any normal world has ground somewhere below.
+	 */
+	private static boolean isVoid(ServerLevel level) {
+		BlockPos.MutableBlockPos probe = new BlockPos.MutableBlockPos();
+		for (int y = level.getMinY(); y < level.getMaxY(); y++) {
+			probe.set(HOME.getX(), y, HOME.getZ());
+			if (!level.getBlockState(probe).isAir()) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/** /skyblock island — drops another island where you are standing. */
+	private static void registerCommands(CommandDispatcher<CommandSourceStack> dispatcher) {
+		dispatcher.register(Commands.literal("skyblock")
+				.then(Commands.literal("island")
+						.executes(ctx -> {
+							ServerPlayer player = ctx.getSource().getPlayerOrException();
+							ServerLevel level = ctx.getSource().getLevel();
+							// Built at your feet, so it appears where you are looking.
+							BlockPos where = player.blockPosition().below();
+							BlockPos stand = Island.build(level, where);
+							player.teleportTo(stand.getX() + 0.5, stand.getY(), stand.getZ() + 0.5);
+							ctx.getSource().sendSuccess(
+									() -> Component.literal("New island built."), false);
+							return 1;
+						})));
+	}
+
+	public static Identifier id(String path) {
+		return Identifier.fromNamespaceAndPath(MOD_ID, path);
+	}
+}
