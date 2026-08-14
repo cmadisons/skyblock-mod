@@ -25,8 +25,8 @@ public final class Portals {
 	private Portals() {
 	}
 
-	/** Ten blocks out from the island, as on Hypixel. */
-	private static final BlockPos ISLAND_PORTAL = new BlockPos(0, 64, 10);
+	/** On the far edge of the portal island, out across the gap from your start. */
+	private static final BlockPos ISLAND_PORTAL = new BlockPos(0, 64, 14);
 
 	/**
 	 * The way home sits flat in the floor at the very centre of the Hub, facing

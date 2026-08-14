@@ -17,6 +17,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.gamerules.GameRules;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -104,9 +105,12 @@ public class SkyBlocksMod implements ModInitializer {
 
 		keepInventory(level);
 		BlockPos stand = Island.build(level, HOME);
+		// Dying into the void shouldn't cost you everything -- keep your items.
+		// Saved with the world, so setting it once here is enough.
+		level.getGameRules().set(GameRules.KEEP_INVENTORY, true, level.getServer());
 		player.teleportTo(stand.getX() + 0.5, stand.getY(), stand.getZ() + 0.5);
 		player.sendSystemMessage(Component.literal(
-				"Welcome to Sky Blocks. Through the portal is the Hub."));
+				"Welcome to Sky Blocks. Bridge across to the minion and the portal."));
 		LOGGER.info("Built the starting island at {}", HOME);
 	}
 

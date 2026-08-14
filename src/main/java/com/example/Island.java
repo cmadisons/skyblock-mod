@@ -5,12 +5,14 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Blocks;
 
 /**
- * Builds a starting island: the dirt platform, a tree, and a cobblestone
- * minion with a chest to fill.
+ * Builds the starting area: your bare little starting island, and -- across a
+ * gap of empty void -- a second island holding the portal to the Hub and the
+ * cobblestone minion.
  *
- * The layout is the classic one, minus the starting chest: no lava, no ice, no
- * seeds. Small on purpose -- the whole point is that you have almost nothing
- * and have to stretch it.
+ * You begin with almost nothing: 5x5 of grass and a tree. There is no bridge,
+ * so to reach the minion (and the way out) you have to dig up your island's
+ * dirt and bridge across. Small on purpose -- the whole point is that you have
+ * almost nothing and have to stretch it.
  */
 public final class Island {
 	private Island() {
@@ -20,38 +22,50 @@ public final class Island {
 	private static final int RADIUS = 2;
 
 	/**
-	 * Build an island with its grass surface at {@code centre}.
+	 * Build the starting island with its grass surface at {@code centre}, plus
+	 * the portal island across the void.
 	 *
 	 * @return the position to stand you on, one block above the grass.
 	 */
 	public static BlockPos build(ServerLevel level, BlockPos centre) {
-		// Two layers of dirt with grass on top. Dirt below so a tree has
-		// something to sit in once you've dug the grass up.
-		for (int dx = -RADIUS; dx <= RADIUS; dx++) {
-			for (int dz = -RADIUS; dz <= RADIUS; dz++) {
+		platform(level, centre, RADIUS);
+		tree(level, centre.offset(-1, 1, -1));
+		buildPortalIsland(level);
+		return centre.above();
+	}
+
+	/**
+	 * The island across the gap: the portal to the Hub at its far edge, and the
+	 * cobblestone minion (plus a chest to fill) at the near edge, where you land
+	 * after bridging over.
+	 *
+	 * The minion sits at the near edge on purpose: stepping into the portal
+	 * sends you straight to the Hub, so anything behind it would be out of reach.
+	 */
+	private static void buildPortalIsland(ServerLevel level) {
+		BlockPos portal = Portals.islandPortal();       // (0, 64, 14), the far edge
+		BlockPos centre = portal.offset(0, 0, -2);      // grass platform centred just in front of it
+		platform(level, centre, RADIUS);
+		Portals.frame(level, portal);
+		// Minion + chest at the near edge, the side you bridge across to.
+		BlockPos near = centre.offset(0, 1, -1);
+		level.setBlockAndUpdate(near, Minions.MINIONS[0].defaultBlockState());
+		level.setBlockAndUpdate(near.offset(1, 0, 0), Blocks.CHEST.defaultBlockState());
+	}
+
+	/**
+	 * A (2*radius+1) square of ground with its grass surface at {@code centre}:
+	 * two layers of dirt with grass on top, so a tree has something to sit in
+	 * once you've dug the grass up.
+	 */
+	private static void platform(ServerLevel level, BlockPos centre, int radius) {
+		for (int dx = -radius; dx <= radius; dx++) {
+			for (int dz = -radius; dz <= radius; dz++) {
 				level.setBlockAndUpdate(centre.offset(dx, -2, dz), Blocks.DIRT.defaultBlockState());
 				level.setBlockAndUpdate(centre.offset(dx, -1, dz), Blocks.DIRT.defaultBlockState());
 				level.setBlockAndUpdate(centre.offset(dx, 0, dz), Blocks.GRASS_BLOCK.defaultBlockState());
 			}
 		}
-
-		tree(level, centre.offset(-1, 1, -1));
-		minion(level, centre);
-
-		return centre.above();
-	}
-
-	/**
-	 * The cobblestone minion, and the chest it fills.
-	 *
-	 * This is the only thing you start with, and it is what gets you off the
-	 * island: there is no bridge to the portal, so you have to build one out of
-	 * what the minion makes.
-	 */
-	private static void minion(ServerLevel level, BlockPos centre) {
-		level.setBlockAndUpdate(centre.offset(1, 1, 1), Minions.MINIONS[0].defaultBlockState());
-		level.setBlockAndUpdate(centre.offset(2, 1, 1), Blocks.CHEST.defaultBlockState());
-		Portals.frame(level, Portals.islandPortal());
 	}
 
 	/** A small oak, hand-placed rather than grown so it is always the same. */
