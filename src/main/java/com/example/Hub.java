@@ -407,11 +407,16 @@ public final class Hub {
 				level.setBlockAndUpdate(graves.offset(dx, 1, dz), Blocks.STONE_BRICK_WALL.defaultBlockState());
 			}
 		}
+		// The Graveyard's own dead, at their real levels -- a Crypt Ghoul is
+		// level 30 and will kill you if you treat it like a zombie.
+		Mobs.ring(level, graves, Mobs.GRAVEYARD, 8, 2);
+
 		Portals.frame(level, graves.offset(0, 1, -12));
 		BlockPos den = graves.offset(0, 0, -60);
 		spidersDen(level, den);
 		// The named spiders the wiki lists, rather than whatever the dark makes.
-		Spiders.populate(level, den);
+		Mobs.ring(level, den, Mobs.SPIDERS_DEN, 10, 2);
+		Mobs.spawn(level, den.offset(0, 3, 0), Mobs.BROODMOTHER);
 	}
 
 	/**
