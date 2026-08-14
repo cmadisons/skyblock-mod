@@ -46,6 +46,63 @@ public final class Shops {
 							.toList(),
 					builder);
 
+	/**
+	 * Sell everything sellable, for the Auctioneer.
+	 *
+	 * The same thing /sell all does, done on the spot. An NPC whose whole job
+	 * is buying your things should buy them, not read you a command.
+	 */
+	public static void sellEverything(ServerPlayer player) {
+		long earned = 0;
+		int sold = 0;
+		for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
+			ItemStack stack = player.getInventory().getItem(slot);
+			Long price = Economy.sellPrice(stack.getItem());
+			if (price == null || stack.isEmpty()) {
+				continue;
+			}
+			earned += price * stack.getCount();
+			sold += stack.getCount();
+			player.getInventory().setItem(slot, ItemStack.EMPTY);
+		}
+		if (sold == 0) {
+			player.sendSystemMessage(Component.literal(
+					"§6" + Npcs.AUCTIONEER + "§7: nothing there I have a price for. "
+							+ "Compress it first -- blocks beat what goes into them."));
+			return;
+		}
+		Economy.give(player, earned);
+		player.sendSystemMessage(Component.literal(
+				"§6" + Npcs.AUCTIONEER + "§7: sold §f" + sold + "§7 for §6"
+						+ Economy.pretty(earned) + " coins§7. You have §6"
+						+ Economy.pretty(Economy.coins(player)) + "§7."));
+	}
+
+	/**
+	 * Show what the Bazaar stocks, for the Bazaar Trader.
+	 *
+	 * A list with prices, so you can see what is worth buying before typing
+	 * anything.
+	 */
+	public static void openBazaar(ServerPlayer player) {
+		player.sendSystemMessage(Component.literal(
+				"§6" + Npcs.BAZAAR + "§7: here's what I have."));
+		Economy.stock().stream()
+				.map(item -> BuiltInRegistries.ITEM.getKey(item).getPath())
+				.sorted()
+				.limit(20)
+				.forEach(name -> {
+					Item item = BuiltInRegistries.ITEM
+							.getOptional(Identifier.withDefaultNamespace(name)).orElse(null);
+					Long cost = item == null ? null : Economy.buyPrice(item);
+					player.sendSystemMessage(Component.literal(
+							"  §f" + name + " §7— §6" + (cost == null ? "?" : cost)
+									+ " coins each"));
+				});
+		player.sendSystemMessage(Component.literal(
+				"§7/bazaar buy <item> <amount>"));
+	}
+
 	public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
 		daily(dispatcher);
 		bank(dispatcher);

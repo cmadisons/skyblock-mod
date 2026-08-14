@@ -66,11 +66,11 @@ public final class Mobs {
 	// ------------------------------------------------------------ the spiders
 
 	public static final Kind[] SPIDERS_DEN = {
-			new Kind("Splitter Spider", Shape.SPIDER, 2, 90, 30, 0.30, false),
+			new Kind("Splitter Spider", Shape.SPIDER, 2, 180, 30, 0.30, true),
 			new Kind("Spider Jockey", Shape.SPIDER, 3, 120, 40, 0.32, false),
 			new Kind("Weaver Spider", Shape.SPIDER, 3, 130, 40, 0.30, false),
 			new Kind("Dasher Spider", Shape.SPIDER, 4, 170, 55, 0.42, true),
-			new Kind("Voracious Spider", Shape.SPIDER, 10, 600, 90, 0.34, false),
+			new Kind("Voracious Spider", Shape.SPIDER, 10, 300, 80, 0.34, true),
 	};
 
 	/** The Den's boss. Real: level 12, 3,000 health, 125 damage. */
@@ -85,7 +85,10 @@ public final class Mobs {
 			// Real: level 30, 2,000 health, 350 damage. Easily the nastiest
 			// thing in the Hub, and the numbers say so.
 			new Kind("Crypt Ghoul", Shape.ZOMBIE, 30, 2000, 350, 0.25, true),
-			new Kind("Golden Ghoul", Shape.ZOMBIE, 30, 2000, 350, 0.25, false),
+			// Real: level 60, 45,000 health, 800 damage. By far the worst thing
+			// in the game so far -- 3,000 health here even after scaling, which
+			// is a boss fight rather than a wandering zombie.
+			new Kind("Golden Ghoul", Shape.ZOMBIE, 60, 45000, 800, 0.25, true),
 	};
 
 	// ---------------------------------------------------------------- spawning

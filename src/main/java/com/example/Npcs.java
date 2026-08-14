@@ -94,18 +94,13 @@ public final class Npcs {
 
 			if (who.equals(AUCTIONEER)) {
 				// Selling is the Auction House's whole job, so he does it --
-				// same as /sell all, without needing to know the command.
-				serverPlayer.sendSystemMessage(Component.literal(
-						"§6" + AUCTIONEER + "§7: type §f/sell all§7 and I'll take "
-								+ "everything I have a price for."));
-				serverPlayer.sendSystemMessage(Component.literal(
-						"§7Compressed blocks are worth more than what goes into them."));
+				// right there, rather than telling you a command to go and type.
+				Shops.sellEverything(serverPlayer);
 				return InteractionResult.SUCCESS;
 			}
 			if (who.equals(BAZAAR)) {
-				serverPlayer.sendSystemMessage(Component.literal(
-						"§6" + BAZAAR + "§7: type §f/bazaar§7 to see what I stock, "
-								+ "or §f/bazaar buy <item> <amount>§7."));
+				// Opens the stock list as a page you can look at.
+				Shops.openBazaar(serverPlayer);
 				return InteractionResult.SUCCESS;
 			}
 			if (!who.equals(BANKER)) {

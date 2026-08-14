@@ -119,6 +119,11 @@ public final class Economy {
 		return player.getAttachedOrCreate(BANK, () -> 0L);
 	}
 
+	/** What the shop pays for one of these, or null if it won't buy them. */
+	public static Long sellPrice(net.minecraft.world.item.Item item) {
+		return PRICES.get(item);
+	}
+
 	/** What the bazaar charges: double what it pays, as a shop does. */
 	public static Long buyPrice(net.minecraft.world.item.Item item) {
 		Long sell = PRICES.get(item);
