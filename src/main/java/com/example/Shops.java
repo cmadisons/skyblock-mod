@@ -103,6 +103,38 @@ public final class Shops {
 				"§7/bazaar buy <item> <amount>"));
 	}
 
+	/**
+	 * Claim the daily reward, for the Booster Cookie in the menu.
+	 *
+	 * The same thing /daily does. A button that describes a command is not a
+	 * button, so pressing the cookie gives you the cookie.
+	 */
+	public static void claimDaily(ServerPlayer player) {
+		if (!(player.level() instanceof net.minecraft.server.level.ServerLevel level)) {
+			return;
+		}
+		long today = level.getGameTime() / DAY;
+		if (player.getAttachedOrCreate(Economy.LAST_DAILY, () -> -1L) == today) {
+			player.sendSystemMessage(Component.literal(
+					"§cAlready claimed today. Come back tomorrow."));
+			return;
+		}
+		player.setAttached(Economy.LAST_DAILY, today);
+		Economy.give(player, DAILY_COINS);
+
+		ItemStack surprise = randomTreat(level.getGameTime());
+		for (ItemStack prize : List.of(new ItemStack(Items.DIAMOND_BLOCK, 4),
+				new ItemStack(Items.NETHERITE_SCRAP, 2), surprise)) {
+			if (!player.getInventory().add(prize.copy())) {
+				player.drop(prize.copy(), false);
+			}
+		}
+		player.sendSystemMessage(Component.literal(
+				"§aDaily claimed! §6" + Economy.pretty(DAILY_COINS) + " coins§a, "
+						+ "4 diamond blocks, 2 netherite scrap, and "
+						+ surprise.getCount() + "x " + surprise.getHoverName().getString()));
+	}
+
 	public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
 		daily(dispatcher);
 		bank(dispatcher);

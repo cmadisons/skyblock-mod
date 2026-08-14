@@ -53,10 +53,10 @@ public final class Areas {
 				// Real: the Gold Mine opens at Mining 1.
 				new Gate("Mining District", hub.offset(0, 0, HubMap.northEdge() - 40), 26,
 						Skills.MINING, 1, true),
-				// The Park's requirement isn't published, so this is a guess --
-				// Foraging 1, matching how the other first islands work.
+				// Real: The Park needs "Foraging I (1)", which the wiki states
+				// outright. This started as a guess and turned out to be right.
 				new Gate("Forest", hub.offset(HubMap.westEdge() - 40, 0, -40), 26,
-						Skills.FORAGING, 1, false),
+						Skills.FORAGING, 1, true),
 		};
 	}
 

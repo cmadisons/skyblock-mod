@@ -128,8 +128,18 @@ public final class Menu {
 				"Everything you have gathered."));
 		page.setItem(at(4, 4), entry(Items.BOOK, "Recipe Book", ChatFormatting.GREEN,
 				"What this mod adds that you can craft."));
-		page.setItem(at(5, 4), soon(Items.EXPERIENCE_BOTTLE, "SkyBlock Leveling"));
-		page.setItem(at(6, 4), soon(Items.WRITABLE_BOOK, "Quests & Chapters"));
+		page.setItem(at(5, 4), entry(Items.EXPERIENCE_BOTTLE, "SkyBlock Leveling",
+				ChatFormatting.GREEN,
+				"Your combined skill level: " + combined,
+				"Every skill level counts once.",
+				"Raise any skill to raise this."));
+		page.setItem(at(6, 4), entry(Items.WRITABLE_BOOK, "Quests & Chapters",
+				ChatFormatting.YELLOW,
+				"Bridge to the portal.",
+				"Reach the Hub.",
+				"Combat 1 to enter the Spider's Den.",
+				"Mining 1 for the Gold Mine.",
+				"Foraging 1 for the Park."));
 		page.setItem(at(7, 4), entry(Items.CLOCK, "Calendar and Events", ChatFormatting.YELLOW,
 				"Daily reward is ready once",
 				"per Minecraft day.",
@@ -160,11 +170,23 @@ public final class Menu {
 		// --- row 1: the bottom row --------------------------------------------
 		page.setItem(at(3, 1), entry(Items.ENDER_PEARL, "Fast Travel", ChatFormatting.GREEN,
 				"Warp to your island or the Hub."));
-		page.setItem(at(4, 1), soon(Items.NAME_TAG, "Profile Management"));
+		page.setItem(at(4, 1), entry(Items.NAME_TAG, "Profile Management",
+				ChatFormatting.GREEN,
+				player.getName().getString(),
+				"One profile per world.",
+				"Make a new world for a new profile."));
 		page.setItem(at(5, 1), entry(Items.BARRIER, "Close", ChatFormatting.RED,
 				"Press Escape."));
-		page.setItem(at(6, 1), soon(Items.REDSTONE_TORCH, "Settings"));
-		page.setItem(at(7, 1), soon(Items.COOKIE, "Booster Cookie"));
+		page.setItem(at(6, 1), entry(Items.REDSTONE_TORCH, "Settings",
+				ChatFormatting.GREEN,
+				"Keep inventory on death: yes",
+				"Death costs half your coins.",
+				"The Village is always safe."));
+		page.setItem(at(7, 1), entry(Items.COOKIE, "Booster Cookie",
+				ChatFormatting.YELLOW,
+				"Claim one free every day.",
+				"A million coins and three items.",
+				"Click, or type /daily."));
 
 		// ReadOnlyMenu, not a plain chest: the icons are real items, so without
 		// it you could walk off with the diamond sword behind "Your Skills".
@@ -185,6 +207,11 @@ public final class Menu {
 			Pages.wardrobe(player);
 		} else if (slot == at(3, 1)) {
 			Pages.fastTravel(player);
+		} else if (slot == at(7, 1)) {
+			// The Booster Cookie is the daily reward, so pressing it claims it
+			// rather than telling you a command to go and type.
+			Shops.claimDaily(player);
+			player.closeContainer();
 		} else if (slot == at(5, 1)) {
 			player.closeContainer();
 		}

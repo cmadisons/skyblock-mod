@@ -468,6 +468,10 @@ public final class Hub {
 				}
 			}
 		}
+		// The Park's spirits. A Pack Spirit is level 30 -- this is not the
+		// gentle woodland it looks like.
+		Mobs.ring(level, middle, Mobs.FOREST, 12, 2);
+
 		// A couple of huts, as the Park has.
 		hall(level, middle.offset(-4, 1, 12), 7, 6, 5, Blocks.OAK_PLANKS, Blocks.OAK_PLANKS);
 	}
@@ -489,6 +493,9 @@ public final class Hub {
 			}
 		}
 		level.setBlockAndUpdate(middle.offset(-14, 1, 0), Blocks.SEA_LANTERN.defaultBlockState());
+
+		// Sea creatures, in the water rather than on the dock.
+		Mobs.ring(level, middle.offset(0, -1, 0), Mobs.SEA, 8, 1);
 	}
 
 	/**
