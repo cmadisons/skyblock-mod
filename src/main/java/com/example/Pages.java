@@ -73,7 +73,7 @@ public final class Pages {
 			}
 		}
 		back(page);
-		Menu.show(player, "Collections", page, Pages::route);
+		Menu.show(player, "Collections", page, Pages::backOnly);
 	}
 
 	/** "oak_log" reads better as "Oak Log". */
@@ -110,7 +110,7 @@ public final class Pages {
 					"Acts every " + seconds + " seconds."));
 		}
 		back(page);
-		Menu.show(player, "Recipe Book", page, Pages::route);
+		Menu.show(player, "Recipe Book", page, Pages::backOnly);
 	}
 
 	// ------------------------------------------------------------ fast travel
@@ -125,7 +125,7 @@ public final class Pages {
 				ChatFormatting.AQUA, "The Village and its districts.", "Click to travel."));
 
 		back(page);
-		Menu.show(player, "Fast Travel", page, Pages::route);
+		Menu.show(player, "Fast Travel", page, Pages::travelClick);
 	}
 
 	// ------------------------------------------------------------------- pets
@@ -157,7 +157,7 @@ public final class Pages {
 			page.setItem(Menu.at(2 + i, 4), icon);
 		}
 		back(page);
-		Menu.show(player, "Pets", page, Pages::route);
+		Menu.show(player, "Pets", page, Pages::petClick);
 	}
 
 	/**
@@ -232,35 +232,50 @@ public final class Pages {
 	// ------------------------------------------------------------------ click
 
 	/**
-	 * What a click on any page does.
+	 * Each page gets its own click handler.
 	 *
-	 * One method for every page, because the pages all use the same slot
-	 * numbering and a click only ever means "press the thing drawn here".
+	 * They used to share one, which was a bug waiting to happen: Fast Travel's
+	 * two destinations sit in the same row as the six pets, so a click meant
+	 * for one could trigger the other. Separate handlers make that impossible
+	 * rather than relying on the order of a chain of ifs.
 	 */
-	private static void route(ServerPlayer player, int slot) {
+
+	/** Pages with nothing to press but Back. */
+	private static void backOnly(ServerPlayer player, int slot) {
 		if (slot == Menu.at(5, 1)) {
-			Menu.open(player);                     // the Back button
-			return;
+			Menu.open(player);
 		}
-		// Fast Travel's two destinations.
-		if (slot == Menu.at(4, 4)) {
+	}
+
+	/** Fast Travel: two destinations, or Back. */
+	private static void travelClick(ServerPlayer player, int slot) {
+		if (slot == Menu.at(5, 1)) {
+			Menu.open(player);
+		} else if (slot == Menu.at(4, 4)) {
 			travel(player, new BlockPos(0, 65, 0), "Travelled to your island.");
 		} else if (slot == Menu.at(6, 4)) {
-			ServerLevel level = player.level() instanceof ServerLevel s ? s : null;
+			ServerLevel level = player.level() instanceof ServerLevel world ? world : null;
 			if (level != null && !Hub.exists(level)) {
 				Hub.build(level);
 			}
 			travel(player, Hub.arrival(), "Travelled to the Hub.");
 		}
-		// Pets: the six icons along row 4, columns 2-7.
+	}
+
+	/** Pets: bring one out, put one away, or Back. */
+	private static void petClick(ServerPlayer player, int slot) {
+		if (slot == Menu.at(5, 1)) {
+			Menu.open(player);
+			return;
+		}
 		for (int i = 0; i < PETS.length; i++) {
 			if (slot != Menu.at(2 + i, 4)) {
 				continue;
 			}
-			String name = PETS[i][0];
 			if (Skills.level(Skills.xp(player, PETS[i][1])) < UNLOCK_LEVEL) {
 				return;                            // still locked, ignore
 			}
+			String name = PETS[i][0];
 			Vault.setPet(player, Vault.pet(player).equals(name) ? "" : name);
 			pets(player);                          // redraw so it shows the change
 			return;

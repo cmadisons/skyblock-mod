@@ -170,16 +170,16 @@ public class SkyBlocksMod implements ModInitializer {
 	/**
 	 * /hub — jump straight to the Hub.
 	 *
-	 * A builder's tool, not part of the game. It needs operator permission, so
-	 * in ordinary play it isn't there at all and you still have to bridge to
-	 * the portal like everyone else. Handy while testing the Hub, which is
-	 * otherwise a long walk away.
+	 * A builder's tool rather than part of the game.
+	 *
+	 * It deliberately has no permission requirement. Gating it behind operator
+	 * rights sounded right, but a single-player world with cheats switched off
+	 * gives you no rights at all -- so the command simply didn't exist, which
+	 * is no use to anybody. It stays available and says "builder command" when
+	 * used, so it's obvious it isn't meant to be part of playing properly.
 	 */
 	private static void registerHubCommand(CommandDispatcher<CommandSourceStack> dispatcher) {
 		dispatcher.register(Commands.literal("hub")
-				// LEVEL_GAMEMASTERS is the cheat-command tier, the same one
-				// /gamemode and /tp sit behind.
-				.requires(source -> Commands.LEVEL_GAMEMASTERS.check(source.permissions()))
 				.executes(ctx -> {
 					ServerPlayer player = ctx.getSource().getPlayerOrException();
 					ServerLevel level = ctx.getSource().getLevel();
