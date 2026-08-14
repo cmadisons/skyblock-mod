@@ -48,7 +48,9 @@ public final class Island {
 	 */
 	private static void buildPortalIsland(ServerLevel level, BlockPos home) {
 		BlockPos portal = Portals.islandPortal(home);   // 14 blocks out, the far edge
-		BlockPos centre = portal.offset(0, 0, -2);      // grass platform centred just in front of it
+		// The platform stays at island height even though the doorway sits a
+		// block above it, so take the height from home rather than from portal.
+		BlockPos centre = new BlockPos(portal.getX(), home.getY(), portal.getZ() - 2);
 		platform(level, centre, RADIUS);
 		Portals.frame(level, portal);
 		// Minion + chest at the near edge, the side you bridge across to.

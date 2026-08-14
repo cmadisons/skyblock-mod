@@ -51,9 +51,15 @@ public final class Portals {
 	private static final Map<UUID, Long> cooldown = new HashMap<>();
 	private static final long COOLDOWN_TICKS = 60;          // three seconds
 
-	/** The portal belonging to the island centred at {@code home}. */
+	/**
+	 * The portal belonging to the island centred at {@code home}.
+	 *
+	 * A block higher than the island itself, so the doorway stands on the grass
+	 * rather than being cut down into it -- at island height the bottom of the
+	 * gap sits level with the ground and you step down into a hole to use it.
+	 */
 	public static BlockPos islandPortal(BlockPos home) {
-		return home.offset(0, 0, PORTAL_DISTANCE);
+		return home.offset(0, 1, PORTAL_DISTANCE);
 	}
 
 	public static BlockPos hubPortal() {
