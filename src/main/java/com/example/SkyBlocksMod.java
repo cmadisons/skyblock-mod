@@ -177,7 +177,9 @@ public class SkyBlocksMod implements ModInitializer {
 	 */
 	private static void registerHubCommand(CommandDispatcher<CommandSourceStack> dispatcher) {
 		dispatcher.register(Commands.literal("hub")
-				.requires(source -> source.hasPermission(2))
+				// LEVEL_GAMEMASTERS is the cheat-command tier, the same one
+				// /gamemode and /tp sit behind.
+				.requires(source -> Commands.LEVEL_GAMEMASTERS.check(source.permissions()))
 				.executes(ctx -> {
 					ServerPlayer player = ctx.getSource().getPlayerOrException();
 					ServerLevel level = ctx.getSource().getLevel();
