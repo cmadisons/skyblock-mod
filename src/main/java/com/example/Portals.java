@@ -25,11 +25,22 @@ public final class Portals {
 	private Portals() {
 	}
 
-	/** On the far edge of the portal island, out across the gap from your start. */
-	private static final BlockPos ISLAND_PORTAL = new BlockPos(0, 64, 14);
+	/**
+	 * How far out from an island's middle its portal sits, across the gap.
+	 *
+	 * An offset rather than a fixed position, because every player has their own
+	 * island and so their own portal. See {@link Islands}.
+	 */
+	private static final int PORTAL_DISTANCE = 14;
 
-	/** The way back, on the far side of the Hub plaza. */
-	private static BlockPos hubPortal = Hub.CENTRE.offset(0, 0, 8);
+	/** The way back, on the far side of the Hub plaza. Shared by everyone. */
+	private static final BlockPos HUB_PORTAL = Hub.CENTRE.offset(0, 0, 8);
+
+	/** On the Hub, opposite the way home: into the Combat Arena. */
+	private static final BlockPos HUB_ARENA_GATE = Hub.CENTRE.offset(0, 0, -8);
+
+	/** Inside the Arena: the way back to the Hub. */
+	private static final BlockPos ARENA_GATE = Arena.CENTRE.offset(0, 0, 8);
 
 	/**
 	 * Who has just teleported, and until when.
@@ -40,12 +51,21 @@ public final class Portals {
 	private static final Map<UUID, Long> cooldown = new HashMap<>();
 	private static final long COOLDOWN_TICKS = 60;          // three seconds
 
-	public static BlockPos islandPortal() {
-		return ISLAND_PORTAL;
+	/** The portal belonging to the island centred at {@code home}. */
+	public static BlockPos islandPortal(BlockPos home) {
+		return home.offset(0, 0, PORTAL_DISTANCE);
 	}
 
 	public static BlockPos hubPortal() {
-		return hubPortal;
+		return HUB_PORTAL;
+	}
+
+	public static BlockPos hubArenaGate() {
+		return HUB_ARENA_GATE;
+	}
+
+	public static BlockPos arenaGate() {
+		return ARENA_GATE;
 	}
 
 	/**
@@ -105,14 +125,30 @@ public final class Portals {
 
 			AABB box = player.getBoundingBox();
 
-			if (box.intersects(doorway(ISLAND_PORTAL))) {
+			// Whichever island the player is standing on, not necessarily their
+			// own -- stepping into a friend's portal should work like your own.
+			BlockPos nearbyIsland = Islands.centreOf(Islands.nearestSlot(player.getX()));
+
+			if (box.intersects(doorway(islandPortal(nearbyIsland)))) {
 				if (!Hub.exists(level)) {
 					Hub.build(level);                      // built on first visit
 					SkyBlocksMod.LOGGER.info("Built the Hub at {}", Hub.CENTRE);
 				}
 				send(player, level, Hub.CENTRE.above(), "Welcome to the Hub.");
-			} else if (box.intersects(doorway(hubPortal))) {
-				send(player, level, new BlockPos(0, 65, 0), "Back to your island.");
+			} else if (box.intersects(doorway(HUB_PORTAL))) {
+				BlockPos home = Islands.homeOf(player);
+				if (home == null) {
+					continue;                              // no island of their own yet
+				}
+				send(player, level, home, "Back to your island.");
+			} else if (box.intersects(doorway(HUB_ARENA_GATE))) {
+				if (!Arena.exists(level)) {
+					Arena.build(level);                    // built on first visit
+					SkyBlocksMod.LOGGER.info("Built the Combat Arena at {}", Arena.CENTRE);
+				}
+				send(player, level, Arena.CENTRE.above(), "The Combat Arena — mind yourself.");
+			} else if (box.intersects(doorway(ARENA_GATE))) {
+				send(player, level, Hub.CENTRE.above(), "Back to the Hub.");
 			}
 		}
 	}

@@ -30,7 +30,7 @@ public final class Island {
 	public static BlockPos build(ServerLevel level, BlockPos centre) {
 		platform(level, centre, RADIUS);
 		tree(level, centre.offset(-1, 1, -1));
-		buildPortalIsland(level);
+		buildPortalIsland(level, centre);
 		return centre.above();
 	}
 
@@ -41,9 +41,13 @@ public final class Island {
 	 *
 	 * The minion sits at the near edge on purpose: stepping into the portal
 	 * sends you straight to the Hub, so anything behind it would be out of reach.
+	 *
+	 * Everything here is measured from {@code home} rather than from fixed
+	 * coordinates, because on a server this gets built once per player, each at
+	 * their own slot along the row. See {@link Islands}.
 	 */
-	private static void buildPortalIsland(ServerLevel level) {
-		BlockPos portal = Portals.islandPortal();       // (0, 64, 14), the far edge
+	private static void buildPortalIsland(ServerLevel level, BlockPos home) {
+		BlockPos portal = Portals.islandPortal(home);   // 14 blocks out, the far edge
 		BlockPos centre = portal.offset(0, 0, -2);      // grass platform centred just in front of it
 		platform(level, centre, RADIUS);
 		Portals.frame(level, portal);

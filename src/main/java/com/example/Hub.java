@@ -26,6 +26,9 @@ public final class Hub {
 	/** Half-width of the stone plaza, so 10 gives a 21x21 square. */
 	private static final int RADIUS = 10;
 
+	/** data/skyblocks/structure/hub.nbt, if you ship one. */
+	private static final String TEMPLATE = "hub";
+
 	/** Has the Hub been built yet? Checked by looking for its floor. */
 	public static boolean exists(ServerLevel level) {
 		return !level.getBlockState(CENTRE.below()).isAir();
@@ -34,9 +37,37 @@ public final class Hub {
 	/**
 	 * Build the plaza, its lamps, the little market stalls and the portal home.
 	 *
+	 * Prefers a hand-built Hub from data/skyblocks/structure/hub.nbt, and falls
+	 * back to the plaza below when no such file is shipped. See {@link
+	 * Structures} for how to export one.
+	 *
 	 * @return where to stand a player arriving from an island.
 	 */
 	public static BlockPos build(ServerLevel level) {
+		if (!Structures.placeCentred(level, TEMPLATE, CENTRE.below())) {
+			plaza(level);
+		}
+
+		// exists() decides whether the Hub is already there by looking for a
+		// block under the middle. A hand-built Hub with a hole in the centre
+		// would read as missing and be rebuilt on every visit, so make sure
+		// there is always something underfoot.
+		if (level.getBlockState(CENTRE.below()).isAir()) {
+			level.setBlockAndUpdate(CENTRE.below(), Blocks.STONE_BRICKS.defaultBlockState());
+		}
+
+		// The portals stay code whichever way the plaza was made: they are
+		// coordinates rather than blocks, so the doorways have to line up with
+		// Portals no matter what you built.
+		Portals.frame(level, Portals.hubPortal());
+		// And, opposite it, the way into the Combat Arena.
+		Portals.frame(level, Portals.hubArenaGate());
+
+		return CENTRE.above();
+	}
+
+	/** The built-in plaza, used when no hub structure has been shipped. */
+	private static void plaza(ServerLevel level) {
 		BlockState floor = Blocks.STONE_BRICKS.defaultBlockState();
 		BlockState path = Blocks.POLISHED_ANDESITE.defaultBlockState();
 
@@ -68,11 +99,6 @@ public final class Hub {
 		stall(level, CENTRE.offset(6, 0, -6));
 		stall(level, CENTRE.offset(-6, 0, 6));
 		stall(level, CENTRE.offset(6, 0, 6));
-
-		// The way home, on the far side of the plaza from where you arrive.
-		Portals.frame(level, Portals.hubPortal());
-
-		return CENTRE.above();
 	}
 
 	/** A 3x3 shelter: four corner posts, a roof, and a lamp underneath. */

@@ -42,9 +42,6 @@ public class SkyBlocksMod implements ModInitializer {
 	public static final String MOD_ID = "skyblocks";
 	public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
-	/** Where the first island is built, and where you spawn. */
-	private static final BlockPos HOME = new BlockPos(0, 64, 0);
-
 	@Override
 	public void onInitialize() {
 		Minions.register();
@@ -60,6 +57,7 @@ public class SkyBlocksMod implements ModInitializer {
 			for (ServerLevel world : server.getAllLevels()) {
 				if (world.dimension() == Level.OVERWORLD) {
 					Portals.tick(world);
+					Mobs.tick(world);
 				}
 			}
 		});
@@ -67,12 +65,16 @@ public class SkyBlocksMod implements ModInitializer {
 	}
 
 	/**
-	 * Give a new arrival somewhere to stand.
+	 * Give a new arrival an island of their own.
 	 *
-	 * Only fires when the world really is empty -- joining a normal world does
-	 * nothing at all, so installing this mod can't wreck a world you already
-	 * have. Once an island exists the check below stops matching, so it never
-	 * builds twice.
+	 * Everybody gets their own slot along the row -- see {@link Islands} -- so a
+	 * server works the same as single player, just with more islands. A player
+	 * who already has one keeps it: the check below finds their island standing
+	 * where they left it and does nothing.
+	 *
+	 * Joining a normal world still does nothing at all. The emptiness check runs
+	 * against the column the island would occupy, so any world with ground in it
+	 * is left alone exactly as before.
 	 */
 	private static void onJoin(ServerPlayer player) {
 		ServerLevel level = player.level() instanceof ServerLevel s ? s : null;
@@ -82,18 +84,39 @@ public class SkyBlocksMod implements ModInitializer {
 		if (!allowed(player, level)) {
 			return;
 		}
-		if (!level.getBlockState(HOME).isAir() || !isVoid(level)) {
-			return;
+
+		// Look at where their island would go without claiming a slot yet, so a
+		// player who wanders into a normal world doesn't burn one.
+		Integer owned = Islands.slot(player);
+		int slot = owned != null ? owned : Islands.peekNext(level);
+		BlockPos centre = Islands.centreOf(slot);
+
+		// Somewhere to build: their slot is empty void and nothing stands there.
+		boolean empty = level.getBlockState(centre).isAir() && isVoid(level, centre);
+
+		if (!empty && owned == null) {
+			return;                     // a normal world, and no island here: leave it alone
 		}
 
-		BlockPos stand = Island.build(level, HOME);
-		// Dying into the void shouldn't cost you everything -- keep your items.
-		// Saved with the world, so setting it once here is enough.
+		// Dying into the void shouldn't cost you everything, so keep inventory is
+		// on from the moment a Sky Blocks world starts. Set on every join rather
+		// than only when an island is built, so it comes back on if it ever gets
+		// turned off -- falling into the void is not a mistake worth a wipe.
 		level.getGameRules().set(GameRules.KEEP_INVENTORY, true, level.getServer());
+
+		if (!empty) {
+			return;                     // their island is already standing
+		}
+
+		if (owned == null) {
+			Islands.claim(level, player, slot);
+		}
+
+		BlockPos stand = Island.build(level, centre);
 		player.teleportTo(stand.getX() + 0.5, stand.getY(), stand.getZ() + 0.5);
 		player.sendSystemMessage(Component.literal(
 				"Welcome to Sky Blocks. Bridge across to the minion and the portal."));
-		LOGGER.info("Built the starting island at {}", HOME);
+		LOGGER.info("Built island {} at {}", slot, centre);
 	}
 
 	/**
@@ -112,15 +135,16 @@ public class SkyBlocksMod implements ModInitializer {
 	}
 
 	/**
-	 * Is this world actually empty?
+	 * Is this stretch of world actually empty?
 	 *
-	 * Checked by looking straight down the column at spawn. A void world has
-	 * nothing in it anywhere; any normal world has ground somewhere below.
+	 * Checked by looking straight down the column an island would sit in. A void
+	 * world has nothing in it anywhere; any normal world has ground somewhere
+	 * below, which is what keeps this mod from touching a world you already have.
 	 */
-	private static boolean isVoid(ServerLevel level) {
+	private static boolean isVoid(ServerLevel level, BlockPos column) {
 		BlockPos.MutableBlockPos probe = new BlockPos.MutableBlockPos();
 		for (int y = level.getMinY(); y < level.getMaxY(); y++) {
-			probe.set(HOME.getX(), y, HOME.getZ());
+			probe.set(column.getX(), y, column.getZ());
 			if (!level.getBlockState(probe).isAir()) {
 				return false;
 			}
