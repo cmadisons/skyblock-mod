@@ -83,6 +83,7 @@ public class SkyBlocksMod implements ModInitializer {
 					Pages.tickPets(world);
 					SafeZone.tick(world);
 					Areas.tick(world);
+					Warps.tick(world);
 				}
 			}
 		});
