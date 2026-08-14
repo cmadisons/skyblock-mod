@@ -126,41 +126,119 @@ public final class Hub {
 			net.minecraft.world.level.block.Block wallBlock,
 			net.minecraft.world.level.block.Block roofBlock) {
 		BlockState wall = wallBlock.defaultBlockState();
-		BlockState roof = roofBlock.defaultBlockState();
-		BlockState pillar = Blocks.POLISHED_ANDESITE.defaultBlockState();
+		BlockState beam = Blocks.OAK_LOG.defaultBlockState();
 
+		// --- walls, with log beams at the corners -----------------------------
 		for (int dx = 0; dx < w; dx++) {
 			for (int dz = 0; dz < d; dz++) {
 				boolean edge = dx == 0 || dx == w - 1 || dz == 0 || dz == d - 1;
+				boolean atCorner = (dx == 0 || dx == w - 1) && (dz == 0 || dz == d - 1);
 				for (int y = 0; y < h; y++) {
-					if (y == h - 1) {
-						level.setBlockAndUpdate(corner.offset(dx, y, dz), roof);
-					} else if (edge) {
-						boolean atCorner = (dx == 0 || dx == w - 1) && (dz == 0 || dz == d - 1);
-						level.setBlockAndUpdate(corner.offset(dx, y, dz), atCorner ? pillar : wall);
+					if (edge) {
+						level.setBlockAndUpdate(corner.offset(dx, y, dz), atCorner ? beam : wall);
+					} else {
+						level.setBlockAndUpdate(corner.offset(dx, y, dz), Blocks.AIR.defaultBlockState());
 					}
 				}
 			}
 		}
-		// Doorway in the middle of the near wall.
+		// A beam along the top of the walls, which is what gives village
+		// buildings their timbered look rather than a plain stone box.
+		for (int dx = 0; dx < w; dx++) {
+			level.setBlockAndUpdate(corner.offset(dx, h - 1, 0), beam);
+			level.setBlockAndUpdate(corner.offset(dx, h - 1, d - 1), beam);
+		}
+		for (int dz = 0; dz < d; dz++) {
+			level.setBlockAndUpdate(corner.offset(0, h - 1, dz), beam);
+			level.setBlockAndUpdate(corner.offset(w - 1, h - 1, dz), beam);
+		}
+
+		// --- a pitched roof, in stairs ----------------------------------------
+		// This is the biggest single difference between something that reads as
+		// a building and something that reads as a box. It rises from both long
+		// sides to a ridge down the middle.
+		net.minecraft.world.level.block.Block stairBlock = stairsFor(roofBlock);
+		int peak = (d + 1) / 2;
+		for (int step = 0; step < peak; step++) {
+			int y = h + step;
+			for (int dx = -1; dx <= w; dx++) {
+				BlockPos north = corner.offset(dx, y, step - 1);
+				BlockPos south = corner.offset(dx, y, d - step);
+				level.setBlockAndUpdate(north, stairBlock.defaultBlockState()
+						.setValue(net.minecraft.world.level.block.StairBlock.FACING,
+								net.minecraft.core.Direction.SOUTH));
+				level.setBlockAndUpdate(south, stairBlock.defaultBlockState()
+						.setValue(net.minecraft.world.level.block.StairBlock.FACING,
+								net.minecraft.core.Direction.NORTH));
+				// Fill under the slope so you can't see daylight through it.
+				level.setBlockAndUpdate(corner.offset(dx, y, step), roofBlock.defaultBlockState());
+				level.setBlockAndUpdate(corner.offset(dx, y, d - 1 - step), roofBlock.defaultBlockState());
+			}
+		}
+		// Cap the ridge.
+		for (int dx = -1; dx <= w; dx++) {
+			level.setBlockAndUpdate(corner.offset(dx, h + peak - 1, peak - 1),
+					roofBlock.defaultBlockState());
+		}
+
+		// --- door, windows and light ------------------------------------------
 		int door = w / 2;
 		for (int dx = door - 1; dx <= door + 1; dx++) {
 			for (int y = 0; y < 3; y++) {
 				level.setBlockAndUpdate(corner.offset(dx, y, 0), Blocks.AIR.defaultBlockState());
 			}
 		}
-		// Windows and ceiling lights.
+		// Lanterns either side of the doorway, the way a village entrance has.
+		level.setBlockAndUpdate(corner.offset(door - 2, 2, 0), Blocks.LANTERN.defaultBlockState());
+		level.setBlockAndUpdate(corner.offset(door + 2, 2, 0), Blocks.LANTERN.defaultBlockState());
+
 		for (int dx = 2; dx < w - 2; dx += 3) {
 			for (int y = 2; y <= 3; y++) {
-				level.setBlockAndUpdate(corner.offset(dx, y, 0), Blocks.GLASS.defaultBlockState());
-				level.setBlockAndUpdate(corner.offset(dx, y, d - 1), Blocks.GLASS.defaultBlockState());
+				if (dx >= door - 1 && dx <= door + 1) {
+					continue;                        // don't glaze over the door
+				}
+				level.setBlockAndUpdate(corner.offset(dx, y, 0), Blocks.GLASS_PANE.defaultBlockState());
+				level.setBlockAndUpdate(corner.offset(dx, y, d - 1), Blocks.GLASS_PANE.defaultBlockState());
 			}
 		}
-		for (int dx = 3; dx < w - 2; dx += 4) {
-			for (int dz = 3; dz < d - 2; dz += 4) {
+		for (int dz = 2; dz < d - 2; dz += 3) {
+			for (int y = 2; y <= 3; y++) {
+				level.setBlockAndUpdate(corner.offset(0, y, dz), Blocks.GLASS_PANE.defaultBlockState());
+				level.setBlockAndUpdate(corner.offset(w - 1, y, dz), Blocks.GLASS_PANE.defaultBlockState());
+			}
+		}
+		// Lit inside so nothing spawns and it reads as occupied.
+		for (int dx = 2; dx < w - 1; dx += 3) {
+			for (int dz = 2; dz < d - 1; dz += 3) {
 				level.setBlockAndUpdate(corner.offset(dx, h - 2, dz), Blocks.SEA_LANTERN.defaultBlockState());
 			}
 		}
+	}
+
+	/**
+	 * The stair block that goes with a roof material.
+	 *
+	 * Vanilla has no way to ask a block for its stair form, so the pairs are
+	 * listed. Anything unknown falls back to oak, which never looks wrong.
+	 */
+	private static net.minecraft.world.level.block.Block stairsFor(
+			net.minecraft.world.level.block.Block roof) {
+		if (roof == Blocks.DARK_OAK_PLANKS) {
+			return Blocks.DARK_OAK_STAIRS;
+		}
+		if (roof == Blocks.SPRUCE_PLANKS) {
+			return Blocks.SPRUCE_STAIRS;
+		}
+		if (roof == Blocks.OAK_PLANKS) {
+			return Blocks.OAK_STAIRS;
+		}
+		if (roof == Blocks.STONE_BRICKS) {
+			return Blocks.STONE_BRICK_STAIRS;
+		}
+		if (roof == Blocks.BRICKS) {
+			return Blocks.BRICK_STAIRS;
+		}
+		return Blocks.OAK_STAIRS;
 	}
 
 	private static void lamp(ServerLevel level, BlockPos foot) {
@@ -395,15 +473,32 @@ public final class Hub {
 				boolean edge = x == west || x == east || z == south || z == north;
 				level.setBlockAndUpdate(CENTRE.offset(x, -1, z), floorBlock);
 				for (int y = 0; y < height; y++) {
-					if (y == height - 1) {
-						level.setBlockAndUpdate(CENTRE.offset(x, y, z), gold);
-					} else if (edge) {
+					if (edge) {
 						boolean corner = (x == west || x == east) && (z == south || z == north);
 						level.setBlockAndUpdate(CENTRE.offset(x, y, z), corner ? gold : wall);
 					} else {
 						level.setBlockAndUpdate(CENTRE.offset(x, y, z), Blocks.AIR.defaultBlockState());
 					}
 				}
+			}
+		}
+
+		// A pitched gold roof, so the Bank reads as a building rather than a
+		// gold-lidded box -- and stays the grandest thing in the Hub.
+		int span = (north - south + 1 + 1) / 2;
+		for (int step = 0; step < span; step++) {
+			int y = height + step;
+			for (int x = west - 1; x <= east + 1; x++) {
+				level.setBlockAndUpdate(CENTRE.offset(x, y, south + step - 1),
+						Blocks.CUT_COPPER_STAIRS.defaultBlockState()
+								.setValue(net.minecraft.world.level.block.StairBlock.FACING,
+										net.minecraft.core.Direction.NORTH));
+				level.setBlockAndUpdate(CENTRE.offset(x, y, north - step + 1),
+						Blocks.CUT_COPPER_STAIRS.defaultBlockState()
+								.setValue(net.minecraft.world.level.block.StairBlock.FACING,
+										net.minecraft.core.Direction.SOUTH));
+				level.setBlockAndUpdate(CENTRE.offset(x, y, south + step), gold);
+				level.setBlockAndUpdate(CENTRE.offset(x, y, north - step), gold);
 			}
 		}
 
