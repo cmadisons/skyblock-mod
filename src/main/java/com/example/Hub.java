@@ -109,7 +109,11 @@ public final class Hub {
 		hall(level, CENTRE.offset(-20, 0, -8), 11, 9, 6,
 				Blocks.DEEPSLATE_BRICKS, Blocks.SPRUCE_PLANKS);     // Bazaar Alley, left
 		hall(level, CENTRE.offset(14, 0, 10), 11, 9, 6,
-				Blocks.BRICKS, Blocks.OAK_PLANKS);                  // Library, right-behind
+				Blocks.BRICKS, Blocks.OAK_PLANKS);                  // Museum, right-behind
+		hall(level, CENTRE.offset(-22, 0, 8), 9, 8, 6,
+				Blocks.OAK_PLANKS, Blocks.OAK_PLANKS);              // Pet Care, left-behind
+		hall(level, CENTRE.offset(18, 0, -8), 9, 8, 6,
+				Blocks.COBBLESTONE, Blocks.OAK_PLANKS);             // Builder's House, right
 	}
 
 	/**
@@ -242,20 +246,80 @@ public final class Hub {
 		}
 	}
 
-	/** Middle-left: the Combat Settlement, with the Graveyard behind it. */
+	/**
+	 * Middle-left: the Combat Settlement, with the Graveyard behind it.
+	 *
+	 * The wiki lists what lives here: Rosetta and the Weaponsmith selling
+	 * early weapons and armour, Jax at an Archery Range, and the
+	 * Thaumaturgist. So there are three buildings and a row of targets, not
+	 * one shed.
+	 */
 	private static void combat(ServerLevel level, BlockPos middle) {
-		ground(level, middle, 20, Blocks.COARSE_DIRT);
+		ground(level, middle, 24, Blocks.COARSE_DIRT);
 
 		hall(level, middle.offset(-6, 0, -4), 13, 10, 7,
-				Blocks.COBBLESTONE, Blocks.DARK_OAK_PLANKS);
+				Blocks.COBBLESTONE, Blocks.DARK_OAK_PLANKS);        // Weaponsmith
+		hall(level, middle.offset(9, 0, -4), 9, 8, 6,
+				Blocks.DEEPSLATE_BRICKS, Blocks.DARK_OAK_PLANKS);   // Thaumaturgist
 
-		// The graveyard, further out: rows of stone slabs as headstones.
+		// The Archery Range: a line of targets to shoot at.
+		for (int i = 0; i < 4; i++) {
+			BlockPos target = middle.offset(-14, 0, 6 + i * 3);
+			for (int y = 0; y < 3; y++) {
+				level.setBlockAndUpdate(target.above(y), Blocks.HAY_BLOCK.defaultBlockState());
+			}
+			level.setBlockAndUpdate(target.above(1).offset(1, 0, 0), Blocks.TARGET.defaultBlockState());
+		}
+
+		// The Graveyard, further out: rows of headstones, and at the back of it
+		// the public portal to the Spider's Den -- which is how the wiki says
+		// you get there.
 		BlockPos graves = middle.offset(0, 0, -26);
-		ground(level, graves, 14, Blocks.COARSE_DIRT);
+		ground(level, graves, 16, Blocks.COARSE_DIRT);
 		for (int dx = -8; dx <= 8; dx += 4) {
 			for (int dz = -8; dz <= 8; dz += 4) {
 				level.setBlockAndUpdate(graves.offset(dx, 0, dz), Blocks.STONE_BRICKS.defaultBlockState());
 				level.setBlockAndUpdate(graves.offset(dx, 1, dz), Blocks.STONE_BRICK_WALL.defaultBlockState());
+			}
+		}
+		Portals.frame(level, graves.offset(0, 1, -12));
+		spidersDen(level, graves.offset(0, 0, -60));
+	}
+
+	/**
+	 * The Spider's Den, through the portal at the back of the Graveyard.
+	 *
+	 * A dark mound riddled with cobwebs. Deliberately unlit, because unlike
+	 * the Village this is somewhere things are meant to spawn.
+	 */
+	private static void spidersDen(ServerLevel level, BlockPos middle) {
+		ground(level, middle, 26, Blocks.COARSE_DIRT);
+
+		for (int dx = -16; dx <= 16; dx++) {
+			for (int dz = -16; dz <= 16; dz++) {
+				int dist = (int) Math.sqrt(dx * dx + dz * dz);
+				if (dist > 16) {
+					continue;
+				}
+				for (int y = 0; y < (16 - dist) / 2; y++) {
+					level.setBlockAndUpdate(middle.offset(dx, y, dz), Blocks.STONE.defaultBlockState());
+				}
+			}
+		}
+		// Webs through it, and a hollow to walk into.
+		for (int dx = -10; dx <= 10; dx += 3) {
+			for (int dz = -10; dz <= 10; dz += 3) {
+				BlockPos web = middle.offset(dx, 1, dz);
+				if (level.getBlockState(web).isAir()) {
+					level.setBlockAndUpdate(web, Blocks.COBWEB.defaultBlockState());
+				}
+			}
+		}
+		for (int dz = 0; dz <= 16; dz++) {
+			for (int dx = -1; dx <= 1; dx++) {
+				for (int y = 0; y < 3; y++) {
+					level.setBlockAndUpdate(middle.offset(dx, y, dz), Blocks.AIR.defaultBlockState());
+				}
 			}
 		}
 	}

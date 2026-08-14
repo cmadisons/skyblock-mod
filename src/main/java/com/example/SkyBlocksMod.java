@@ -77,6 +77,7 @@ public class SkyBlocksMod implements ModInitializer {
 				if (world.dimension() == Level.OVERWORLD) {
 					Portals.tick(world);
 					Pages.tickPets(world);
+					SafeZone.tick(world);
 				}
 			}
 		});
