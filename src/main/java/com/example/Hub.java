@@ -6,92 +6,444 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 
 /**
- * The Hub — the shared area the portal on your island takes you to.
+ * The Hub — laid out from the SkyBlock wiki rather than guessed.
  *
- * It sits a long way from your island rather than in a dimension of its own,
- * which keeps the whole thing to one world file and means a portal is just a
- * teleport. A thousand blocks is far enough that you will never wander into it
- * by accident from spawn.
+ * Spawn is the middle of the Village, and the portal home lies flat in the
+ * floor right there, because that is where the real one is: "the Portal to a
+ * player's Private Island is found in the center of the village".
  *
- * Built the first time somebody goes through, not when the world is made, so a
- * world you never use the portal in stays completely empty.
+ * Directions, standing at spawn looking forward (north):
+ *
+ *                       Mining District  ->  Gold Mine
+ *                              |
+ *      Combat Settlement       |
+ *        -> Graveyard          |
+ *              \               |
+ *   Forest ---------------  THE VILLAGE  --------------- Fishing Outpost
+ *   -> The Park                |
+ *                       Community Center
+ *
+ * The Bank sits left-and-forward of spawn at roughly (-20, -65), which is
+ * where the wiki puts it. The Village around spawn holds the Community Center,
+ * the Auction House, Bazaar Alley and the Library.
+ *
+ * What this is not: a block-for-block copy. Hypixel's Hub is hand-built and
+ * they do not publish the world file, so the districts, their directions and
+ * the Bank's position are real, while the buildings themselves are mine.
  */
 public final class Hub {
 	private Hub() {
 	}
 
-	/** Middle of the Hub plaza. Far from the island, same world. */
+	/** Spawn: the middle of the Village. */
 	public static final BlockPos CENTRE = new BlockPos(0, 64, 1000);
 
-	/** Half-width of the stone plaza, so 10 gives a 21x21 square. */
-	private static final int RADIUS = 10;
+	/** Half-width of the Village plaza itself. */
+	private static final int VILLAGE = 26;
 
-	/** Has the Hub been built yet? Checked by looking for its floor. */
+	/**
+	 * Where you land: a few blocks south of the portal.
+	 *
+	 * Off the pad on purpose -- landing on it would send you straight home
+	 * again. From here the Community Center is behind you and the Mining
+	 * District is straight ahead.
+	 */
+	public static BlockPos arrival() {
+		return CENTRE.offset(0, 1, 6);
+	}
+
 	public static boolean exists(ServerLevel level) {
 		return !level.getBlockState(CENTRE.below()).isAir();
 	}
 
-	/**
-	 * Build the plaza, its lamps, the little market stalls and the portal home.
-	 *
-	 * @return where to stand a player arriving from an island.
-	 */
+	/** Build the whole Hub. Returns where to stand an arriving player. */
 	public static BlockPos build(ServerLevel level) {
+		village(level);
+
+		// The districts, at their real bearings from spawn.
+		mining(level, CENTRE.offset(0, 0, -95));            // forward
+		combat(level, CENTRE.offset(-58, 0, -46));          // middle-left
+		forest(level, CENTRE.offset(-88, 0, 0));            // left
+		fishing(level, CENTRE.offset(86, 0, 0));            // right
+		bank(level);                                        // left and forward
+
+		// Roads out to each one, so the place hangs together.
+		road(level, 0, -VILLAGE, 0, -95);
+		road(level, -VILLAGE, 0, -88, 0);
+		road(level, VILLAGE, 0, 86, 0);
+		roadDiagonal(level, -20, -20, -58, -46);
+		roadDiagonal(level, -20, -30, -29, -36);
+
+		Portals.pad(level, CENTRE);                          // the way home
+		return arrival();
+	}
+
+	// ------------------------------------------------------------- the village
+
+	/** The Village: the plaza at spawn and the buildings around it. */
+	private static void village(ServerLevel level) {
 		BlockState floor = Blocks.STONE_BRICKS.defaultBlockState();
 		BlockState path = Blocks.POLISHED_ANDESITE.defaultBlockState();
 
-		// A round-ish plaza: square corners trimmed off so it reads as a place
-		// rather than a slab.
-		for (int dx = -RADIUS; dx <= RADIUS; dx++) {
-			for (int dz = -RADIUS; dz <= RADIUS; dz++) {
-				if (Math.abs(dx) + Math.abs(dz) > RADIUS + 5) {
-					continue;
+		for (int dx = -VILLAGE; dx <= VILLAGE; dx++) {
+			for (int dz = -VILLAGE; dz <= VILLAGE; dz++) {
+				if (Math.abs(dx) + Math.abs(dz) > VILLAGE + 12) {
+					continue;                                // round off the corners
 				}
-				// A cross of lighter stone through the middle, as walkways.
-				boolean walkway = Math.abs(dx) <= 1 || Math.abs(dz) <= 1;
+				boolean walkway = Math.abs(dx) <= 2 || Math.abs(dz) <= 2;
 				level.setBlockAndUpdate(CENTRE.offset(dx, -1, dz), walkway ? path : floor);
 			}
 		}
-
-		// Lamps around the edge so the Hub is lit and nothing spawns on it.
-		for (int dx = -RADIUS; dx <= RADIUS; dx += 5) {
-			for (int dz = -RADIUS; dz <= RADIUS; dz += 5) {
-				if (Math.abs(dx) != RADIUS && Math.abs(dz) != RADIUS) {
-					continue;                       // edge only, not the middle
-				}
-				level.setBlockAndUpdate(CENTRE.offset(dx, 0, dz), Blocks.SEA_LANTERN.defaultBlockState());
-			}
+		for (int d = -VILLAGE + 4; d <= VILLAGE - 4; d += 9) {
+			lamp(level, CENTRE.offset(d, 0, 4));
+			lamp(level, CENTRE.offset(d, 0, -4));
+			lamp(level, CENTRE.offset(4, 0, d));
+			lamp(level, CENTRE.offset(-4, 0, d));
 		}
 
-		// Four small stalls, one per corner, for shops to live in later.
-		stall(level, CENTRE.offset(-6, 0, -6));
-		stall(level, CENTRE.offset(6, 0, -6));
-		stall(level, CENTRE.offset(-6, 0, 6));
-		stall(level, CENTRE.offset(6, 0, 6));
-
-		// The way home, on the far side of the plaza from where you arrive.
-		Portals.frame(level, Portals.hubPortal());
-
-		return CENTRE.above();
+		// The buildings the wiki lists in the Village.
+		hall(level, CENTRE.offset(-8, 0, 14), 17, 12, 9,
+				Blocks.STONE_BRICKS, Blocks.DARK_OAK_PLANKS);       // Community Center, behind
+		hall(level, CENTRE.offset(10, 0, -18), 13, 10, 7,
+				Blocks.SMOOTH_STONE, Blocks.OAK_PLANKS);            // Auction House, right-forward
+		hall(level, CENTRE.offset(-20, 0, -8), 11, 9, 6,
+				Blocks.DEEPSLATE_BRICKS, Blocks.SPRUCE_PLANKS);     // Bazaar Alley, left
+		hall(level, CENTRE.offset(14, 0, 10), 11, 9, 6,
+				Blocks.BRICKS, Blocks.OAK_PLANKS);                  // Library, right-behind
 	}
 
-	/** A 3x3 shelter: four corner posts, a roof, and a lamp underneath. */
-	private static void stall(ServerLevel level, BlockPos corner) {
-		BlockState post = Blocks.OAK_LOG.defaultBlockState();
-		BlockState roof = Blocks.OAK_PLANKS.defaultBlockState();
+	/**
+	 * A rectangular building: walls, a roof, a doorway and lights inside.
+	 *
+	 * Every building in the Hub is one of these with different materials and
+	 * sizes, which keeps them consistent and the code short.
+	 */
+	private static void hall(ServerLevel level, BlockPos corner, int w, int d, int h,
+			net.minecraft.world.level.block.Block wallBlock,
+			net.minecraft.world.level.block.Block roofBlock) {
+		BlockState wall = wallBlock.defaultBlockState();
+		BlockState roof = roofBlock.defaultBlockState();
+		BlockState pillar = Blocks.POLISHED_ANDESITE.defaultBlockState();
 
-		for (int dx = 0; dx <= 2; dx += 2) {
-			for (int dz = 0; dz <= 2; dz += 2) {
-				for (int y = 0; y < 3; y++) {
-					level.setBlockAndUpdate(corner.offset(dx, y, dz), post);
+		for (int dx = 0; dx < w; dx++) {
+			for (int dz = 0; dz < d; dz++) {
+				boolean edge = dx == 0 || dx == w - 1 || dz == 0 || dz == d - 1;
+				for (int y = 0; y < h; y++) {
+					if (y == h - 1) {
+						level.setBlockAndUpdate(corner.offset(dx, y, dz), roof);
+					} else if (edge) {
+						boolean atCorner = (dx == 0 || dx == w - 1) && (dz == 0 || dz == d - 1);
+						level.setBlockAndUpdate(corner.offset(dx, y, dz), atCorner ? pillar : wall);
+					}
 				}
 			}
 		}
-		for (int dx = -1; dx <= 3; dx++) {
-			for (int dz = -1; dz <= 3; dz++) {
-				level.setBlockAndUpdate(corner.offset(dx, 3, dz), roof);
+		// Doorway in the middle of the near wall.
+		int door = w / 2;
+		for (int dx = door - 1; dx <= door + 1; dx++) {
+			for (int y = 0; y < 3; y++) {
+				level.setBlockAndUpdate(corner.offset(dx, y, 0), Blocks.AIR.defaultBlockState());
 			}
 		}
-		level.setBlockAndUpdate(corner.offset(1, 2, 1), Blocks.GLOWSTONE.defaultBlockState());
+		// Windows and ceiling lights.
+		for (int dx = 2; dx < w - 2; dx += 3) {
+			for (int y = 2; y <= 3; y++) {
+				level.setBlockAndUpdate(corner.offset(dx, y, 0), Blocks.GLASS.defaultBlockState());
+				level.setBlockAndUpdate(corner.offset(dx, y, d - 1), Blocks.GLASS.defaultBlockState());
+			}
+		}
+		for (int dx = 3; dx < w - 2; dx += 4) {
+			for (int dz = 3; dz < d - 2; dz += 4) {
+				level.setBlockAndUpdate(corner.offset(dx, h - 2, dz), Blocks.SEA_LANTERN.defaultBlockState());
+			}
+		}
+	}
+
+	private static void lamp(ServerLevel level, BlockPos foot) {
+		level.setBlockAndUpdate(foot, Blocks.POLISHED_ANDESITE.defaultBlockState());
+		level.setBlockAndUpdate(foot.above(), Blocks.POLISHED_ANDESITE.defaultBlockState());
+		level.setBlockAndUpdate(foot.above(2), Blocks.SEA_LANTERN.defaultBlockState());
+	}
+
+	// ------------------------------------------------------------------- roads
+
+	/** A straight five-wide road between two points in the plaza's plane. */
+	private static void road(ServerLevel level, int x1, int z1, int x2, int z2) {
+		int steps = Math.max(Math.abs(x2 - x1), Math.abs(z2 - z1));
+		for (int i = 0; i <= steps; i++) {
+			int x = x1 + (x2 - x1) * i / steps;
+			int z = z1 + (z2 - z1) * i / steps;
+			for (int w = -2; w <= 2; w++) {
+				boolean sideways = Math.abs(x2 - x1) > Math.abs(z2 - z1);
+				BlockPos at = CENTRE.offset(sideways ? x : x + w, -1, sideways ? z + w : z);
+				level.setBlockAndUpdate(at, Blocks.POLISHED_ANDESITE.defaultBlockState());
+			}
+		}
+	}
+
+	/** The same, for the two districts that sit off the compass points. */
+	private static void roadDiagonal(ServerLevel level, int x1, int z1, int x2, int z2) {
+		int steps = Math.max(Math.abs(x2 - x1), Math.abs(z2 - z1));
+		for (int i = 0; i <= steps; i++) {
+			int x = x1 + (x2 - x1) * i / steps;
+			int z = z1 + (z2 - z1) * i / steps;
+			for (int dx = -1; dx <= 1; dx++) {
+				for (int dz = -1; dz <= 1; dz++) {
+					level.setBlockAndUpdate(CENTRE.offset(x + dx, -1, z + dz),
+							Blocks.POLISHED_ANDESITE.defaultBlockState());
+				}
+			}
+		}
+	}
+
+	// --------------------------------------------------------------- districts
+
+	/** Forward: the Mining District, a stone hill you can walk into. */
+	private static void mining(ServerLevel level, BlockPos middle) {
+		ground(level, middle, 20, Blocks.STONE);
+
+		for (int dx = -14; dx <= 14; dx++) {
+			for (int dz = -14; dz <= 14; dz++) {
+				int dist = (int) Math.sqrt(dx * dx + dz * dz);
+				if (dist > 14) {
+					continue;
+				}
+				for (int y = 0; y < 14 - dist; y++) {
+					level.setBlockAndUpdate(middle.offset(dx, y, dz), Blocks.STONE.defaultBlockState());
+				}
+			}
+		}
+		// Ore through the hill, placed by a fixed pattern so every world matches.
+		BlockState[] ores = {
+				Blocks.COAL_ORE.defaultBlockState(), Blocks.IRON_ORE.defaultBlockState(),
+				Blocks.COPPER_ORE.defaultBlockState(), Blocks.GOLD_ORE.defaultBlockState(),
+				Blocks.REDSTONE_ORE.defaultBlockState(), Blocks.LAPIS_ORE.defaultBlockState(),
+				Blocks.DIAMOND_ORE.defaultBlockState(),
+		};
+		int n = 0;
+		for (int dx = -12; dx <= 12; dx += 3) {
+			for (int dz = -12; dz <= 12; dz += 3) {
+				for (int y = 1; y < 10; y += 3) {
+					BlockPos spot = middle.offset(dx, y, dz);
+					if (level.getBlockState(spot).is(Blocks.STONE)) {
+						level.setBlockAndUpdate(spot, ores[(n % 19 == 0) ? 6 : (n % 5)]);
+					}
+					n++;
+				}
+			}
+		}
+		// The way in, from the village side.
+		for (int dz = 0; dz <= 16; dz++) {
+			for (int dx = -1; dx <= 1; dx++) {
+				for (int y = 0; y < 3; y++) {
+					level.setBlockAndUpdate(middle.offset(dx, y, dz), Blocks.AIR.defaultBlockState());
+				}
+			}
+		}
+	}
+
+	/** Middle-left: the Combat Settlement, with the Graveyard behind it. */
+	private static void combat(ServerLevel level, BlockPos middle) {
+		ground(level, middle, 20, Blocks.COARSE_DIRT);
+
+		hall(level, middle.offset(-6, 0, -4), 13, 10, 7,
+				Blocks.COBBLESTONE, Blocks.DARK_OAK_PLANKS);
+
+		// The graveyard, further out: rows of stone slabs as headstones.
+		BlockPos graves = middle.offset(0, 0, -26);
+		ground(level, graves, 14, Blocks.COARSE_DIRT);
+		for (int dx = -8; dx <= 8; dx += 4) {
+			for (int dz = -8; dz <= 8; dz += 4) {
+				level.setBlockAndUpdate(graves.offset(dx, 0, dz), Blocks.STONE_BRICKS.defaultBlockState());
+				level.setBlockAndUpdate(graves.offset(dx, 1, dz), Blocks.STONE_BRICK_WALL.defaultBlockState());
+			}
+		}
+	}
+
+	/** Left: the Forest, leading on to the Park. Trees to chop. */
+	private static void forest(ServerLevel level, BlockPos middle) {
+		ground(level, middle, 24, Blocks.GRASS_BLOCK);
+
+		for (int dx = -18; dx <= 18; dx += 6) {
+			for (int dz = -18; dz <= 18; dz += 6) {
+				if ((dx / 6 + dz / 6) % 2 == 0) {
+					tree(level, middle.offset(dx, 1, dz));
+				}
+			}
+		}
+		// A couple of huts, as the Park has.
+		hall(level, middle.offset(-4, 1, 12), 7, 6, 5, Blocks.OAK_PLANKS, Blocks.OAK_PLANKS);
+	}
+
+	/** Right: the Fishing Outpost — a pond and a dock. */
+	private static void fishing(ServerLevel level, BlockPos middle) {
+		ground(level, middle, 22, Blocks.STONE);
+
+		for (int dx = -14; dx <= 14; dx++) {
+			for (int dz = -14; dz <= 14; dz++) {
+				if (dx * dx + dz * dz < 169) {
+					level.setBlockAndUpdate(middle.offset(dx, -1, dz), Blocks.WATER.defaultBlockState());
+				}
+			}
+		}
+		for (int dx = -14; dx <= 0; dx++) {
+			for (int dz = -1; dz <= 1; dz++) {
+				level.setBlockAndUpdate(middle.offset(dx, 0, dz), Blocks.OAK_PLANKS.defaultBlockState());
+			}
+		}
+		level.setBlockAndUpdate(middle.offset(-14, 1, 0), Blocks.SEA_LANTERN.defaultBlockState());
+	}
+
+	/**
+	 * Left and forward: the Bank.
+	 *
+	 * Two real coordinates anchor this, both from the wiki: the Bank itself at
+	 * (-20, 71, -65) from spawn, and Banker Broadjaw at (-29.5, 72, -38). They
+	 * are 27 blocks apart, which says the building is long and that he stands
+	 * near the entrance rather than at the middle -- so it is built to span
+	 * both, with the door at his end.
+	 *
+	 * Two things inside are real, from the wiki: Banker Broadjaw stands here,
+	 * and the Personal Vault is "to your right" as you walk in, which is why
+	 * the iron-walled room sits against the east wall by the door.
+	 *
+	 * The rest of the architecture is mine. No wiki records what the Bank
+	 * actually looks like, so the two floors, the counter and the gold inside
+	 * the vault are invention; the positions are what's real.
+	 */
+	private static void bank(ServerLevel level) {
+		BlockState wall = Blocks.SMOOTH_STONE.defaultBlockState();
+		BlockState gold = Blocks.GOLD_BLOCK.defaultBlockState();
+		BlockState floorBlock = Blocks.POLISHED_ANDESITE.defaultBlockState();
+
+		// Small enough to feel like a building rather than a warehouse:
+		// 13 wide, 19 deep, one storey with a raised roof.
+		int west = -33;
+		int east = -21;
+		int south = -56;
+		int north = -38;
+		int height = 8;
+
+		ground(level, CENTRE.offset((west + east) / 2, 0, (north + south) / 2), 17, Blocks.STONE_BRICKS);
+
+		for (int x = west; x <= east; x++) {
+			for (int z = south; z <= north; z++) {
+				boolean edge = x == west || x == east || z == south || z == north;
+				level.setBlockAndUpdate(CENTRE.offset(x, -1, z), floorBlock);
+				for (int y = 0; y < height; y++) {
+					if (y == height - 1) {
+						level.setBlockAndUpdate(CENTRE.offset(x, y, z), gold);
+					} else if (edge) {
+						boolean corner = (x == west || x == east) && (z == south || z == north);
+						level.setBlockAndUpdate(CENTRE.offset(x, y, z), corner ? gold : wall);
+					} else {
+						level.setBlockAndUpdate(CENTRE.offset(x, y, z), Blocks.AIR.defaultBlockState());
+					}
+				}
+			}
+		}
+
+		// Entrance in the south wall, with a gold pillar either side.
+		for (int x = -29; x <= -25; x++) {
+			for (int y = 0; y < 4; y++) {
+				level.setBlockAndUpdate(CENTRE.offset(x, y, north), Blocks.AIR.defaultBlockState());
+			}
+		}
+		for (int y = 0; y < 5; y++) {
+			level.setBlockAndUpdate(CENTRE.offset(-30, y, north + 1), gold);
+			level.setBlockAndUpdate(CENTRE.offset(-24, y, north + 1), gold);
+		}
+
+		// Windows down both long walls.
+		for (int z = south + 3; z < north - 1; z += 4) {
+			for (int y = 2; y <= 3; y++) {
+				level.setBlockAndUpdate(CENTRE.offset(west, y, z), Blocks.GLASS.defaultBlockState());
+				level.setBlockAndUpdate(CENTRE.offset(east, y, z), Blocks.GLASS.defaultBlockState());
+			}
+		}
+
+		// The counter the Banker stands behind.
+		for (int x = -31; x <= -26; x++) {
+			level.setBlockAndUpdate(CENTRE.offset(x, 0, north - 5), Blocks.SMOOTH_STONE.defaultBlockState());
+			level.setBlockAndUpdate(CENTRE.offset(x, 1, north - 5), Blocks.SMOOTH_STONE_SLAB.defaultBlockState());
+		}
+
+		// --- the vault, on your right as you walk in ---------------------------
+		// The wiki is specific: "you can find the Personal Vault by looking to
+		// your right". You come in facing north, so right is east.
+		int vaultWest = east - 6;
+		int vaultSouth = north - 3;
+		int vaultNorth = north - 10;
+
+		for (int x = vaultWest; x < east; x++) {
+			for (int z = vaultNorth; z <= vaultSouth; z++) {
+				if (x != vaultWest && z != vaultNorth && z != vaultSouth) {
+					continue;
+				}
+				for (int y = 0; y < 5; y++) {
+					level.setBlockAndUpdate(CENTRE.offset(x, y, z), Blocks.IRON_BLOCK.defaultBlockState());
+				}
+			}
+		}
+		for (int y = 0; y < 3; y++) {                                    // vault doorway
+			level.setBlockAndUpdate(CENTRE.offset(vaultWest, y, vaultSouth - 3), Blocks.AIR.defaultBlockState());
+			level.setBlockAndUpdate(CENTRE.offset(vaultWest, y, vaultSouth - 4), Blocks.AIR.defaultBlockState());
+		}
+		for (int x = vaultWest + 2; x < east; x += 2) {                  // gold inside
+			for (int z = vaultNorth + 2; z < vaultSouth - 1; z += 2) {
+				level.setBlockAndUpdate(CENTRE.offset(x, 0, z), gold);
+			}
+		}
+
+		// --- lighting -----------------------------------------------------------
+		// Deliberately heavy. Monsters spawn in the dark, and nothing should
+		// ever be waiting for you inside a bank -- so every part of the floor
+		// is lit well past the level anything can spawn at.
+		for (int x = west + 1; x < east; x += 3) {
+			for (int z = south + 1; z < north; z += 3) {
+				level.setBlockAndUpdate(CENTRE.offset(x, height - 2, z), Blocks.SEA_LANTERN.defaultBlockState());
+			}
+		}
+		for (int z = south + 2; z < north; z += 5) {                     // wall lamps too
+			level.setBlockAndUpdate(CENTRE.offset(west + 1, 3, z), Blocks.GLOWSTONE.defaultBlockState());
+			level.setBlockAndUpdate(CENTRE.offset(east - 1, 3, z), Blocks.GLOWSTONE.defaultBlockState());
+		}
+
+		// Banker Broadjaw, behind his counter, facing the door.
+		Npcs.spawnBanker(level, CENTRE.offset(-28, 0, north - 6));
+	}
+
+	/** A flat circle of ground for a district to sit on. */
+	private static void ground(ServerLevel level, BlockPos middle, int radius,
+			net.minecraft.world.level.block.Block surface) {
+		for (int dx = -radius; dx <= radius; dx++) {
+			for (int dz = -radius; dz <= radius; dz++) {
+				if (dx * dx + dz * dz > radius * radius) {
+					continue;
+				}
+				level.setBlockAndUpdate(middle.offset(dx, -1, dz), surface.defaultBlockState());
+				level.setBlockAndUpdate(middle.offset(dx, -2, dz), Blocks.DIRT.defaultBlockState());
+			}
+		}
+	}
+
+	/** A full-size oak. */
+	private static void tree(ServerLevel level, BlockPos foot) {
+		for (int y = 0; y < 6; y++) {
+			level.setBlockAndUpdate(foot.above(y), Blocks.OAK_LOG.defaultBlockState());
+		}
+		for (int dx = -2; dx <= 2; dx++) {
+			for (int dz = -2; dz <= 2; dz++) {
+				for (int y = 4; y <= 6; y++) {
+					if ((dx == 0 && dz == 0 && y < 6) || (Math.abs(dx) == 2 && Math.abs(dz) == 2)) {
+						continue;
+					}
+					BlockPos leaf = foot.offset(dx, y, dz);
+					if (level.getBlockState(leaf).isAir()) {
+						level.setBlockAndUpdate(leaf, Blocks.OAK_LEAVES.defaultBlockState());
+					}
+				}
+			}
+		}
 	}
 }

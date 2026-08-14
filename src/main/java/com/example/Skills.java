@@ -23,9 +23,15 @@ import net.minecraft.world.level.block.state.BlockState;
  * gives a reward yet beyond the number itself -- levels are the scoreboard, and
  * what they unlock comes later.
  *
- * Two of the seven have no source of XP yet and will sit at zero: Taming, which
- * needs pets to exist first, and HOTF, which isn't a real Hypixel skill at all
- * and still needs deciding.
+ * All seven earn XP now:
+ *
+ *   Farming, Foraging, Mining   breaking the right blocks
+ *   Combat                      killing monsters
+ *   Hunting                     killing animals
+ *   Taming                      breeding animals, so it grows from looking
+ *                               after things rather than killing them
+ *   HOTF (Heart of the Forest)  a tenth of all Foraging XP, so it climbs
+ *                               quietly in the background as you chop
  *
  * Levels use a squared curve: level 1 costs 50 XP, level 2 costs 200, level 10
  * costs 5,000. Early levels come quickly and later ones take real work, which
@@ -122,7 +128,15 @@ public final class Skills {
 			String skill = skillFor(state);
 			if (skill != null) {
 				add(serverPlayer, skill, xpFor(state));
+				// Heart of the Forest grows off Foraging rather than its own
+				// blocks -- it is the slow background half of chopping.
+				if (skill.equals(FORAGING)) {
+					add(serverPlayer, HOTF, Math.max(1, xpFor(state) / 10));
+				}
 			}
+			// Collections count everything broken, whether it feeds a skill
+			// or not, so the page shows the true picture of what you've done.
+			Vault.collect(serverPlayer, state.getBlock().asItem(), 1);
 		});
 
 		ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
@@ -137,9 +151,30 @@ public final class Skills {
 						? COMBAT : HUNTING, worth);
 			}
 
-			// Dying costs you half of what you're carrying.
+			// Dying costs you half of what you're carrying. Your items are
+			// safe -- keepInventory is switched on for Sky Blocks worlds.
 			if (entity instanceof ServerPlayer dead) {
 				Economy.onDeath(dead);
+			}
+		});
+	}
+
+	/**
+	 * Taming XP, for breeding animals.
+	 *
+	 * A newly born animal means somebody just fed two of them, so the nearest
+	 * player gets the credit. Looking after animals is what Taming is for --
+	 * killing them is Hunting, and the two shouldn't be the same thing.
+	 */
+	public static void registerBreeding() {
+		net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents.ENTITY_LOAD.register((entity, world) -> {
+			if (!(entity instanceof net.minecraft.world.entity.animal.Animal baby) || !baby.isBaby()) {
+				return;
+			}
+			net.minecraft.world.entity.player.Player near =
+					world.getNearestPlayer(entity, 12.0);
+			if (near instanceof ServerPlayer player && SkyBlocksMod.allowed(player, world)) {
+				add(player, TAMING, 10);
 			}
 		});
 	}

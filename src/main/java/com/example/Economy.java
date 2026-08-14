@@ -40,6 +40,31 @@ public final class Economy {
 					.buildAndRegister(SkyBlocksMod.id("coins"));
 
 	/**
+	 * Coins kept in the bank.
+	 *
+	 * This is the whole point of a bank: {@link #onDeath} takes half of what
+	 * you are carrying and never touches what is in here.
+	 */
+	public static final AttachmentType<Long> BANK =
+			AttachmentRegistry.<Long>builder()
+					.initializer(() -> 0L)
+					.persistent(Codec.LONG)
+					.copyOnDeath()
+					.buildAndRegister(SkyBlocksMod.id("bank"));
+
+	/**
+	 * The day number of the last /daily claim, counted from the world's own
+	 * clock rather than real time, so it can't be gamed by changing the
+	 * computer's date.
+	 */
+	public static final AttachmentType<Long> LAST_DAILY =
+			AttachmentRegistry.<Long>builder()
+					.initializer(() -> -1L)
+					.persistent(Codec.LONG)
+					.copyOnDeath()
+					.buildAndRegister(SkyBlocksMod.id("last_daily"));
+
+	/**
 	 * What the shop pays, per item.
 	 *
 	 * Anything not listed can't be sold at all, which keeps junk out of the
@@ -88,6 +113,21 @@ public final class Economy {
 
 	public static long coins(ServerPlayer player) {
 		return player.getAttachedOrCreate(COINS, () -> 0L);
+	}
+
+	public static long bank(ServerPlayer player) {
+		return player.getAttachedOrCreate(BANK, () -> 0L);
+	}
+
+	/** What the bazaar charges: double what it pays, as a shop does. */
+	public static Long buyPrice(net.minecraft.world.item.Item item) {
+		Long sell = PRICES.get(item);
+		return sell == null ? null : sell * 2;
+	}
+
+	/** Everything the shop deals in, for command suggestions. */
+	public static java.util.Set<net.minecraft.world.item.Item> stock() {
+		return PRICES.keySet();
 	}
 
 	public static void give(ServerPlayer player, long amount) {

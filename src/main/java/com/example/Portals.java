@@ -28,8 +28,12 @@ public final class Portals {
 	/** Ten blocks out from the island, as on Hypixel. */
 	private static final BlockPos ISLAND_PORTAL = new BlockPos(0, 64, 10);
 
-	/** The way back, on the far side of the Hub plaza. */
-	private static BlockPos hubPortal = Hub.CENTRE.offset(0, 0, 8);
+	/**
+	 * The way home sits flat in the floor at the very centre of the Hub, facing
+	 * up at you, rather than standing as a doorway. Everything in the Hub is
+	 * arranged around it.
+	 */
+	private static BlockPos hubPortal = Hub.CENTRE;
 
 	/**
 	 * Who has just teleported, and until when.
@@ -79,10 +83,34 @@ public final class Portals {
 		}
 	}
 
+	/**
+	 * Lay the way home into the floor: a 3x3 pad you step onto.
+	 *
+	 * Sunk one block so it is flush with the plaza rather than a lump in the
+	 * middle of it, with the glowing block in the centre.
+	 */
+	public static void pad(ServerLevel level, BlockPos centre) {
+		for (int dx = -1; dx <= 1; dx++) {
+			for (int dz = -1; dz <= 1; dz++) {
+				boolean middle = dx == 0 && dz == 0;
+				level.setBlockAndUpdate(centre.offset(dx, -1, dz),
+						(middle ? Blocks.CRYING_OBSIDIAN : Blocks.OBSIDIAN).defaultBlockState());
+				// Clear the space above so you can actually stand on it.
+				level.setBlockAndUpdate(centre.offset(dx, 0, dz), Blocks.AIR.defaultBlockState());
+			}
+		}
+	}
+
 	/** The space a player has to be standing in to be sent somewhere. */
 	private static AABB doorway(BlockPos base) {
 		return new AABB(base.getX() - 0.4, base.getY(), base.getZ() - 0.4,
 				base.getX() + 1.4, base.getY() + 3.0, base.getZ() + 1.4);
+	}
+
+	/** The space above the floor pad, which is wider and shorter. */
+	private static AABB floorPad(BlockPos centre) {
+		return new AABB(centre.getX() - 1.0, centre.getY() - 0.2, centre.getZ() - 1.0,
+				centre.getX() + 2.0, centre.getY() + 2.0, centre.getZ() + 2.0);
 	}
 
 	/**
@@ -110,8 +138,8 @@ public final class Portals {
 					Hub.build(level);                      // built on first visit
 					SkyBlocksMod.LOGGER.info("Built the Hub at {}", Hub.CENTRE);
 				}
-				send(player, level, Hub.CENTRE.above(), "Welcome to the Hub.");
-			} else if (box.intersects(doorway(hubPortal))) {
+				send(player, level, Hub.arrival(), "Welcome to the Hub.");
+			} else if (box.intersects(floorPad(hubPortal))) {
 				send(player, level, new BlockPos(0, 65, 0), "Back to your island.");
 			}
 		}

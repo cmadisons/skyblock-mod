@@ -5,6 +5,7 @@ import com.mojang.brigadier.CommandDispatcher;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.fabricmc.fabric.api.event.player.UseItemCallback;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 
 import net.minecraft.commands.CommandSourceStack;
@@ -48,10 +49,25 @@ public class SkyBlocksMod implements ModInitializer {
 	public void onInitialize() {
 		Minions.register();
 		Skills.registerHooks();
+		Skills.registerBreeding();
+		Npcs.registerInteraction();
+		Menu.registerKeepInSlot();
+		// Right-clicking the star in slot nine opens the SkyBlock Menu.
+		UseItemCallback.EVENT.register((player, world, hand) -> {
+			if (player instanceof ServerPlayer serverPlayer
+					&& world instanceof ServerLevel serverWorld
+					&& allowed(serverPlayer, serverWorld)
+					&& Menu.isStar(player.getItemInHand(hand))) {
+				Menu.open(serverPlayer);
+				return net.minecraft.world.InteractionResult.SUCCESS;
+			}
+			return net.minecraft.world.InteractionResult.PASS;
+		});
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> onJoin(handler.getPlayer()));
 		CommandRegistrationCallback.EVENT.register((dispatcher, access, env) -> {
 			registerCommands(dispatcher);
 			Economy.registerCommands(dispatcher);
+			Shops.register(dispatcher);
 		});
 		// Portals aren't real blocks, so somebody has to watch for a player
 		// standing in one. See Portals.tick -- it is deliberately cheap.
@@ -59,6 +75,7 @@ public class SkyBlocksMod implements ModInitializer {
 			for (ServerLevel world : server.getAllLevels()) {
 				if (world.dimension() == Level.OVERWORLD) {
 					Portals.tick(world);
+					Pages.tickPets(world);
 				}
 			}
 		});
@@ -85,11 +102,31 @@ public class SkyBlocksMod implements ModInitializer {
 			return;
 		}
 
+		keepInventory(level);
 		BlockPos stand = Island.build(level, HOME);
 		player.teleportTo(stand.getX() + 0.5, stand.getY(), stand.getZ() + 0.5);
 		player.sendSystemMessage(Component.literal(
 				"Welcome to Sky Blocks. Through the portal is the Hub."));
 		LOGGER.info("Built the starting island at {}", HOME);
+	}
+
+	/**
+	 * Switch on keepInventory for a Sky Blocks world.
+	 *
+	 * Dying here usually means falling into the void, where your things are
+	 * gone for good rather than waiting in a pile -- so losing them as well
+	 * would be brutal. Coins are the thing death costs you: see
+	 * {@link Economy#onDeath}.
+	 *
+	 * Only ever touched for a world this mod built, so a normal world keeps
+	 * whatever rules you set for it.
+	 */
+	private static void keepInventory(ServerLevel level) {
+		// Done through the ordinary command rather than the game-rule field,
+		// which Mojang renames between versions.
+		level.getServer().getCommands().performPrefixedCommand(
+				level.getServer().createCommandSourceStack().withSuppressedOutput(),
+				"gamerule keepInventory true");
 	}
 
 	/**
