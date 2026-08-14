@@ -133,13 +133,18 @@ public final class Menu {
 				"Your combined skill level: " + combined,
 				"Every skill level counts once.",
 				"Raise any skill to raise this."));
+		// The real quest log: how many are done, and the next few to do.
+		java.util.List<Quests.Quest> left = Quests.remaining(player);
+		java.util.List<String> lines = new java.util.ArrayList<>();
+		lines.add(Quests.completed(player) + " of " + Quests.ALL.length + " done");
+		for (int i = 0; i < Math.min(4, left.size()); i++) {
+			lines.add("☐ " + left.get(i).name());
+		}
+		if (left.isEmpty()) {
+			lines.add("All of them. Well done.");
+		}
 		page.setItem(at(6, 4), entry(Items.WRITABLE_BOOK, "Quests & Chapters",
-				ChatFormatting.YELLOW,
-				"Bridge to the portal.",
-				"Reach the Hub.",
-				"Combat 1 to enter the Spider's Den.",
-				"Mining 1 for the Gold Mine.",
-				"Foraging 1 for the Park."));
+				ChatFormatting.YELLOW, lines.toArray(new String[0])));
 		page.setItem(at(7, 4), entry(Items.CLOCK, "Calendar and Events", ChatFormatting.YELLOW,
 				"Daily reward is ready once",
 				"per Minecraft day.",
