@@ -47,6 +47,27 @@ public final class Npcs {
 	}
 
 	/**
+	 * Put a named villager somewhere and freeze them there.
+	 *
+	 * Used for the Hub's residents, whose names and positions come from a
+	 * community coordinate guide rather than being made up.
+	 */
+	public static void spawnVillager(ServerLevel level, BlockPos where, String name) {
+		Villager npc = EntityType.VILLAGER.create(level, EntitySpawnReason.COMMAND);
+		if (npc == null) {
+			return;
+		}
+		npc.snapTo(where.getX() + 0.5, where.getY(), where.getZ() + 0.5, 180.0f, 0.0f);
+		npc.setCustomName(Component.literal(name).withStyle(ChatFormatting.YELLOW));
+		npc.setCustomNameVisible(true);
+		npc.setInvulnerable(true);
+		npc.setPersistenceRequired();
+		npc.setNoAi(true);
+		npc.setSilent(true);
+		level.addFreshEntity(npc);
+	}
+
+	/**
 	 * Right-clicking the Banker opens your bank.
 	 *
 	 * He tells you the numbers and how to move money; the actual moving is

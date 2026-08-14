@@ -102,18 +102,34 @@ public final class Hub {
 		}
 
 		// The buildings the wiki lists in the Village.
+		//
+		// Each checks for one you saved with the Blueprint mod first, and only
+		// falls back to the invented version if you haven't made one. See
+		// Custom -- that is how a Hub that looks right finally gets built.
+		if (!Custom.place(level, CENTRE.offset(0, 0, 20), "community_center")) {
 		hall(level, CENTRE.offset(-8, 0, 14), 17, 12, 9,
 				Blocks.STONE_BRICKS, Blocks.DARK_OAK_PLANKS);       // Community Center, behind
+		}
+		if (!Custom.place(level, CENTRE.offset(16, 0, -13), "auction_house")) {
 		hall(level, CENTRE.offset(10, 0, -18), 13, 10, 7,
 				Blocks.SMOOTH_STONE, Blocks.OAK_PLANKS);            // Auction House, right-forward
+		}
+		if (!Custom.place(level, CENTRE.offset(-15, 0, -4), "bazaar_alley")) {
 		hall(level, CENTRE.offset(-20, 0, -8), 11, 9, 6,
 				Blocks.DEEPSLATE_BRICKS, Blocks.SPRUCE_PLANKS);     // Bazaar Alley, left
+		}
+		if (!Custom.place(level, CENTRE.offset(19, 0, 14), "museum")) {
 		hall(level, CENTRE.offset(14, 0, 10), 11, 9, 6,
 				Blocks.BRICKS, Blocks.OAK_PLANKS);                  // Museum, right-behind
+		}
+		if (!Custom.place(level, CENTRE.offset(-18, 0, 12), "pet_care")) {
 		hall(level, CENTRE.offset(-22, 0, 8), 9, 8, 6,
 				Blocks.OAK_PLANKS, Blocks.OAK_PLANKS);              // Pet Care, left-behind
+		}
+		if (!Custom.place(level, CENTRE.offset(22, 0, -4), "builders_house")) {
 		hall(level, CENTRE.offset(18, 0, -8), 9, 8, 6,
 				Blocks.COBBLESTONE, Blocks.OAK_PLANKS);             // Builder's House, right
+		}
 	}
 
 	/**
@@ -454,6 +470,12 @@ public final class Hub {
 	 * the vault are invention; the positions are what's real.
 	 */
 	private static void bank(ServerLevel level) {
+		// A Bank you built yourself wins over this one. Build it, highlight it
+		// with a stick, /blueprint save bank -- and it appears here instead.
+		if (Custom.place(level, CENTRE.offset(-27, 0, -47), "bank")) {
+			Npcs.spawnBanker(level, CENTRE.offset(-27, 1, -44));
+			return;
+		}
 		BlockState wall = Blocks.SMOOTH_STONE.defaultBlockState();
 		BlockState gold = Blocks.GOLD_BLOCK.defaultBlockState();
 		BlockState floorBlock = Blocks.POLISHED_ANDESITE.defaultBlockState();
