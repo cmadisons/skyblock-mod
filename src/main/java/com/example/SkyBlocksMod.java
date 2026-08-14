@@ -67,6 +67,7 @@ public class SkyBlocksMod implements ModInitializer {
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> onJoin(handler.getPlayer()));
 		CommandRegistrationCallback.EVENT.register((dispatcher, access, env) -> {
 			registerCommands(dispatcher);
+			registerHubCommand(dispatcher);
 			Economy.registerCommands(dispatcher);
 			Shops.register(dispatcher);
 		});
@@ -164,6 +165,33 @@ public class SkyBlocksMod implements ModInitializer {
 			}
 		}
 		return true;
+	}
+
+	/**
+	 * /hub — jump straight to the Hub.
+	 *
+	 * A builder's tool, not part of the game. It needs operator permission, so
+	 * in ordinary play it isn't there at all and you still have to bridge to
+	 * the portal like everyone else. Handy while testing the Hub, which is
+	 * otherwise a long walk away.
+	 */
+	private static void registerHubCommand(CommandDispatcher<CommandSourceStack> dispatcher) {
+		dispatcher.register(Commands.literal("hub")
+				.requires(source -> source.hasPermission(2))
+				.executes(ctx -> {
+					ServerPlayer player = ctx.getSource().getPlayerOrException();
+					ServerLevel level = ctx.getSource().getLevel();
+					if (!Hub.exists(level)) {
+						Hub.build(level);
+						ctx.getSource().sendSuccess(
+								() -> Component.literal("Built the Hub."), false);
+					}
+					BlockPos to = Hub.arrival();
+					player.teleportTo(to.getX() + 0.5, to.getY(), to.getZ() + 0.5);
+					ctx.getSource().sendSuccess(
+							() -> Component.literal("§7Warped to the Hub. (builder command)"), false);
+					return 1;
+				}));
 	}
 
 	/** /skyblock island — drops another island where you are standing. */
