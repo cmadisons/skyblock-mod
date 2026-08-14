@@ -26,6 +26,12 @@ public final class Npcs {
 
 	public static final String BANKER = "Banker Broadjaw";
 
+	/** The Auction House's own NPC: sells everything you're carrying. */
+	public static final String AUCTIONEER = "Auctioneer";
+
+	/** Bazaar Alley's: opens the buying list. */
+	public static final String BAZAAR = "Bazaar Trader";
+
 	/**
 	 * Put the Banker in the Bank.
 	 *
@@ -77,11 +83,32 @@ public final class Npcs {
 		UseEntityCallback.EVENT.register((player, level, hand, entity, hit) -> {
 			if (!(player instanceof ServerPlayer serverPlayer)
 					|| !(level instanceof ServerLevel serverLevel)
-					|| entity.getCustomName() == null
-					|| !entity.getCustomName().getString().equals(BANKER)) {
+					|| entity.getCustomName() == null) {
 				return InteractionResult.PASS;
 			}
 			if (!SkyBlocksMod.allowed(serverPlayer, serverLevel)) {
+				return InteractionResult.PASS;
+			}
+
+			String who = entity.getCustomName().getString();
+
+			if (who.equals(AUCTIONEER)) {
+				// Selling is the Auction House's whole job, so he does it --
+				// same as /sell all, without needing to know the command.
+				serverPlayer.sendSystemMessage(Component.literal(
+						"§6" + AUCTIONEER + "§7: type §f/sell all§7 and I'll take "
+								+ "everything I have a price for."));
+				serverPlayer.sendSystemMessage(Component.literal(
+						"§7Compressed blocks are worth more than what goes into them."));
+				return InteractionResult.SUCCESS;
+			}
+			if (who.equals(BAZAAR)) {
+				serverPlayer.sendSystemMessage(Component.literal(
+						"§6" + BAZAAR + "§7: type §f/bazaar§7 to see what I stock, "
+								+ "or §f/bazaar buy <item> <amount>§7."));
+				return InteractionResult.SUCCESS;
+			}
+			if (!who.equals(BANKER)) {
 				return InteractionResult.PASS;
 			}
 

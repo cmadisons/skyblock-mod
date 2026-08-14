@@ -58,77 +58,108 @@ public final class Hub {
 
 	/** Build the whole Hub. Returns where to stand an arriving player. */
 	public static BlockPos build(ServerLevel level) {
-		village(level);
+		ground(level);
+		buildings(level);
+		people(level);
+		roads(level);
 
-		// The districts, at their real bearings from spawn.
-		mining(level, CENTRE.offset(0, 0, -95));            // forward
-		combat(level, CENTRE.offset(-58, 0, -46));          // middle-left
-		forest(level, CENTRE.offset(-88, 0, 0));            // left
-		fishing(level, CENTRE.offset(86, 0, 0));            // right
-		bank(level);                                        // left and forward
-
-		// Roads out to each one, so the place hangs together.
-		road(level, 0, -VILLAGE, 0, -95);
-		road(level, -VILLAGE, 0, -88, 0);
-		road(level, VILLAGE, 0, 86, 0);
-		roadDiagonal(level, -20, -20, -58, -46);
-		roadDiagonal(level, -20, -30, -29, -36);
+		// The districts sit beyond the buildings, in the directions the wiki
+		// gives, clear of everything the coordinate guide covers.
+		mining(level, CENTRE.offset(0, 0, HubMap.northEdge() - 40));
+		combat(level, CENTRE.offset(-110, 0, -150));
+		forest(level, CENTRE.offset(HubMap.westEdge() - 40, 0, -40));
+		fishing(level, CENTRE.offset(HubMap.eastEdge() + 40, 0, -70));
 
 		Portals.pad(level, CENTRE);                          // the way home
 		return arrival();
 	}
 
-	// ------------------------------------------------------------- the village
-
-	/** The Village: the plaza at spawn and the buildings around it. */
-	private static void village(ServerLevel level) {
+	/**
+	 * The floor the whole Village stands on.
+	 *
+	 * Sized from the buildings themselves rather than a fixed number, so it
+	 * always reaches far enough -- the real Hub runs 177 blocks north of spawn
+	 * and 84 east, which is a great deal bigger than it looks on a map.
+	 */
+	private static void ground(ServerLevel level) {
 		BlockState floor = Blocks.STONE_BRICKS.defaultBlockState();
-		BlockState path = Blocks.POLISHED_ANDESITE.defaultBlockState();
+		BlockState grass = Blocks.GRASS_BLOCK.defaultBlockState();
+		BlockState dirt = Blocks.DIRT.defaultBlockState();
 
-		for (int dx = -VILLAGE; dx <= VILLAGE; dx++) {
-			for (int dz = -VILLAGE; dz <= VILLAGE; dz++) {
-				if (Math.abs(dx) + Math.abs(dz) > VILLAGE + 12) {
-					continue;                                // round off the corners
-				}
-				boolean walkway = Math.abs(dx) <= 2 || Math.abs(dz) <= 2;
-				level.setBlockAndUpdate(CENTRE.offset(dx, -1, dz), walkway ? path : floor);
+		int west = HubMap.westEdge();
+		int east = HubMap.eastEdge();
+		int north = HubMap.northEdge();
+		int south = HubMap.southEdge();
+
+		for (int x = west; x <= east; x++) {
+			for (int z = north; z <= south; z++) {
+				// Stone through the middle where the buildings are, grass out
+				// towards the edges, so it reads as a town on an island rather
+				// than one enormous slab.
+				boolean paved = Math.abs(x) < 60 && z > -150;
+				level.setBlockAndUpdate(CENTRE.offset(x, -1, z), paved ? floor : grass);
+				level.setBlockAndUpdate(CENTRE.offset(x, -2, z), dirt);
 			}
 		}
-		for (int d = -VILLAGE + 4; d <= VILLAGE - 4; d += 9) {
-			lamp(level, CENTRE.offset(d, 0, 4));
-			lamp(level, CENTRE.offset(d, 0, -4));
+	}
+
+	/**
+	 * Every building, at its measured position.
+	 *
+	 * Each checks for one you saved with the Blueprint mod first and only falls
+	 * back to the built-in shape if you have not made one, so a Hub you built
+	 * yourself gradually replaces this one building at a time.
+	 */
+	private static void buildings(ServerLevel level) {
+		for (HubMap.Place place : HubMap.BUILDINGS) {
+			BlockPos at = CENTRE.offset(place.x(), place.y(), place.z());
+
+			if (!place.blueprint().isEmpty() && Custom.place(level, at, place.blueprint())) {
+				continue;                        // yours, so leave it alone
+			}
+			// Centred on the coordinate, since that is what the guide records --
+			// the position of the building, not the corner of it.
+			hall(level, at.offset(-place.width() / 2, 0, -place.depth() / 2),
+					place.width(), place.depth(), place.height(), place.wall(), place.roof());
+		}
+	}
+
+	/** The residents, standing where the guide puts them. */
+	private static void people(ServerLevel level) {
+		for (HubMap.Person person : HubMap.PEOPLE) {
+			Npcs.spawnVillager(level, CENTRE.offset(person.x(), person.y(), person.z()),
+					person.name());
+		}
+		// The three shopkeepers stand inside their own buildings, so the
+		// Auction House and Bazaar Alley are places you go to do something
+		// rather than empty shells.
+		for (HubMap.Place place : HubMap.BUILDINGS) {
+			BlockPos inside = CENTRE.offset(place.x(), place.y() + 1, place.z() + 3);
+			switch (place.name()) {
+				case "Bank" -> Npcs.spawnBanker(level, inside);
+				case "Auction House" -> Npcs.spawnVillager(level, inside, Npcs.AUCTIONEER);
+				case "Bazaar Alley" -> Npcs.spawnVillager(level, inside, Npcs.BAZAAR);
+				default -> {
+				}
+			}
+		}
+	}
+
+	/**
+	 * Paths joining the buildings up.
+	 *
+	 * A road runs to each one from the portal, which is crude next to a
+	 * hand-laid street plan but does the job the streets do: it stops the
+	 * Village being a field with sheds dotted about in it.
+	 */
+	private static void roads(ServerLevel level) {
+		for (HubMap.Place place : HubMap.BUILDINGS) {
+			road(level, 0, 0, place.x(), place.z());
+		}
+		// Lamps down the two main lines out of the portal.
+		for (int d = -10; d >= HubMap.northEdge() + 10; d -= 12) {
 			lamp(level, CENTRE.offset(4, 0, d));
 			lamp(level, CENTRE.offset(-4, 0, d));
-		}
-
-		// The buildings the wiki lists in the Village.
-		//
-		// Each checks for one you saved with the Blueprint mod first, and only
-		// falls back to the invented version if you haven't made one. See
-		// Custom -- that is how a Hub that looks right finally gets built.
-		if (!Custom.place(level, CENTRE.offset(0, 0, 20), "community_center")) {
-		hall(level, CENTRE.offset(-8, 0, 14), 17, 12, 9,
-				Blocks.STONE_BRICKS, Blocks.DARK_OAK_PLANKS);       // Community Center, behind
-		}
-		if (!Custom.place(level, CENTRE.offset(16, 0, -13), "auction_house")) {
-		hall(level, CENTRE.offset(10, 0, -18), 13, 10, 7,
-				Blocks.SMOOTH_STONE, Blocks.OAK_PLANKS);            // Auction House, right-forward
-		}
-		if (!Custom.place(level, CENTRE.offset(-15, 0, -4), "bazaar_alley")) {
-		hall(level, CENTRE.offset(-20, 0, -8), 11, 9, 6,
-				Blocks.DEEPSLATE_BRICKS, Blocks.SPRUCE_PLANKS);     // Bazaar Alley, left
-		}
-		if (!Custom.place(level, CENTRE.offset(19, 0, 14), "museum")) {
-		hall(level, CENTRE.offset(14, 0, 10), 11, 9, 6,
-				Blocks.BRICKS, Blocks.OAK_PLANKS);                  // Museum, right-behind
-		}
-		if (!Custom.place(level, CENTRE.offset(-18, 0, 12), "pet_care")) {
-		hall(level, CENTRE.offset(-22, 0, 8), 9, 8, 6,
-				Blocks.OAK_PLANKS, Blocks.OAK_PLANKS);              // Pet Care, left-behind
-		}
-		if (!Custom.place(level, CENTRE.offset(22, 0, -4), "builders_house")) {
-		hall(level, CENTRE.offset(18, 0, -8), 9, 8, 6,
-				Blocks.COBBLESTONE, Blocks.OAK_PLANKS);             // Builder's House, right
 		}
 	}
 
@@ -377,7 +408,10 @@ public final class Hub {
 			}
 		}
 		Portals.frame(level, graves.offset(0, 1, -12));
-		spidersDen(level, graves.offset(0, 0, -60));
+		BlockPos den = graves.offset(0, 0, -60);
+		spidersDen(level, den);
+		// The named spiders the wiki lists, rather than whatever the dark makes.
+		Spiders.populate(level, den);
 	}
 
 	/**
