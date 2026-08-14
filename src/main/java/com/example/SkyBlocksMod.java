@@ -37,7 +37,10 @@ import org.slf4j.LoggerFactory;
  * tree, and a walkway out to a portal ten blocks away. Step into the portal and
  * you are taken to the Hub, which is built the first time anyone goes through.
  *
- * All of it is Survival-only. In Creative or Hardcore the mod does nothing.
+ * Survival is the game. Creative is shut out, because a game about having
+ * nothing is pointless when you are handed everything -- unless the Blueprint
+ * mod is installed, which is taken as saying you are here to build rather than
+ * play. See allowed().
  */
 public class SkyBlocksMod implements ModInitializer {
 	public static final String MOD_ID = "skyblocks";
@@ -136,18 +139,34 @@ public class SkyBlocksMod implements ModInitializer {
 	}
 
 	/**
-	 * Sky Blocks runs in Survival only.
+	 * Sky Blocks runs in Survival -- and in Creative if Blueprint is installed.
 	 *
-	 * Creative would make the whole thing pointless -- the game is about having
-	 * almost nothing, and Creative hands you everything. Hardcore is excluded
-	 * too. In either mode this mod does nothing whatsoever: no island, no
-	 * commands, exactly as if it weren't installed.
+	 * Creative would normally make the whole thing pointless: the game is about
+	 * having almost nothing, and Creative hands you everything. So it is shut
+	 * out, and Hardcore with it.
+	 *
+	 * The exception is Blueprint. That mod exists so you can build the real
+	 * game's buildings by hand and save them, and you plainly cannot do that
+	 * with a wooden pickaxe and no blocks. So having Blueprint installed is
+	 * taken as saying "I am here to build, not to play" and Creative is let
+	 * through.
+	 *
+	 * Take Blueprint out of the mods folder and Sky Blocks is Survival-only
+	 * again, exactly as before.
 	 */
 	public static boolean allowed(ServerPlayer player, ServerLevel level) {
 		if (level.getLevelData().isHardcore()) {
 			return false;
 		}
-		return player.gameMode() == GameType.SURVIVAL;
+		if (player.gameMode() == GameType.SURVIVAL) {
+			return true;
+		}
+		return player.gameMode() == GameType.CREATIVE && buildMode();
+	}
+
+	/** Is Blueprint installed? If so, Creative counts as build mode. */
+	public static boolean buildMode() {
+		return net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("blueprint");
 	}
 
 	/**
