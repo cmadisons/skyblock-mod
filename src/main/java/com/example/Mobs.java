@@ -2,6 +2,7 @@ package com.example;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Holder;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
@@ -11,26 +12,26 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attribute;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.Attributes;
-import net.minecraft.core.Holder;
 
 /**
- * Every named enemy in the game, with its real numbers.
+ * Every enemy in the game, with its real numbers.
  *
- * Health and damage below are Hypixel's own, taken from each mob's wiki page.
- * Where a page gives no numbers they are estimated from the mob's level, and
- * the table says which is which -- so it is always clear what is measured and
- * what is a guess.
+ * Health, damage and level below are all Hypixel's own, from the game's mob
+ * tables. Nothing here is estimated any more. The two that used to be guesses
+ * are both settled: the Spider Jockey has 220 health and 55 damage, and the
+ * Gold Mine turns out to be the only public island in SkyBlock with no mobs at
+ * all -- so the ones invented for it have been deleted rather than corrected.
  *
- * Why the real numbers are divided down
- * ------------------------------------
- * A Hypixel player has thousands of health. A vanilla player has twenty. A Crypt
- * Ghoul really does hit for 350, which there is a hard fight and here is death
- * through full netherite before you see it coming -- not the same fight at all,
- * just a wall.
+ * Why the numbers are divided down
+ * -------------------------------
+ * A Hypixel player has thousands of health. A vanilla player has twenty. A Soul
+ * of the Alpha really does hit for 1,140 -- there a hard fight, here death
+ * through full netherite before you see it coming. Not the same fight, just a
+ * wall.
  *
  * So the real figures are the source of truth and are scaled on the way in. The
- * ratios are what matter and they survive: a Crypt Ghoul stays roughly twelve
- * times the threat a Splitter Spider is. Change the two divisors to make the
+ * ratios are the part that matters and they survive: a Soul of the Alpha stays
+ * about thirty times the threat a Splitter Spider is. Two divisors make the
  * whole game harder or softer at once.
  */
 public final class Mobs {
@@ -41,104 +42,133 @@ public final class Mobs {
 	 * How far to divide Hypixel's numbers.
 	 *
 	 * A vanilla player has 20 health and full netherite stops about 80% of a
-	 * hit, so much past 10 damage is a one-shot. These put the Broodmother at
-	 * 200 health and 10 damage: a fight you can lose rather than one you
-	 * cannot win.
+	 * hit, so much past 10 damage is a one-shot. Health divides harder than
+	 * damage because the worst mobs here run to tens of thousands.
 	 */
-	public static final double HEALTH_SCALE = 15.0;
-	public static final double DAMAGE_SCALE = 12.5;
+	public static final double HEALTH_SCALE = 60.0;
+	public static final double DAMAGE_SCALE = 40.0;
 
-	/** What kind of thing to spawn, since not every enemy is a spider. */
+	/** Nothing ever scales down weaker than this. */
+	private static final double MIN_HEALTH = 4;
+	private static final double MIN_DAMAGE = 1;
+
+	/** What to spawn, since an enemy can be almost anything. */
 	public enum Shape {
-		SPIDER, ZOMBIE, ZOMBIE_VILLAGER, SKELETON, DROWNED, GUARDIAN, WOLF, WITCH
+		SPIDER, CAVE_SPIDER, ZOMBIE, ZOMBIE_VILLAGER, SKELETON, SILVERFISH, SLIME,
+		WOLF, DROWNED, GUARDIAN, WITCH, ENDERMAN, ENDERMITE, WITHER_SKELETON,
+		BLAZE, MAGMA_CUBE, CREEPER, PIGLIN, COW, PIG, CHICKEN
 	}
 
-	/**
-	 * One enemy.
-	 *
-	 * @param real true when health and damage come from the wiki, false when
-	 *             they are estimated from the level.
-	 */
+	/** One enemy: its name, what it looks like, and Hypixel's own numbers. */
 	public record Kind(String name, Shape shape, int level, double health, double damage,
-			double speed, boolean real) {
+			double speed) {
 	}
 
-	// ------------------------------------------------------------ the spiders
-
-	public static final Kind[] SPIDERS_DEN = {
-			new Kind("Splitter Spider", Shape.SPIDER, 2, 180, 30, 0.30, true),
-			new Kind("Spider Jockey", Shape.SPIDER, 3, 120, 40, 0.32, false),
-			new Kind("Weaver Spider", Shape.SPIDER, 3, 160, 35, 0.30, true),
-			new Kind("Dasher Spider", Shape.SPIDER, 4, 170, 55, 0.42, true),
-			new Kind("Voracious Spider", Shape.SPIDER, 10, 300, 80, 0.34, true),
-	};
-
-	/** The Den's boss. Real: level 12, 3,000 health, 125 damage. */
-	public static final Kind BROODMOTHER =
-			new Kind("Broodmother", Shape.SPIDER, 12, 3000, 125, 0.30, true);
-
-	// ---------------------------------------------------------- the graveyard
+	// -------------------------------------------------------------- graveyard
 
 	public static final Kind[] GRAVEYARD = {
-			new Kind("Graveyard Zombie", Shape.ZOMBIE, 1, 100, 25, 0.23, false),
-			new Kind("Zombie Villager", Shape.ZOMBIE_VILLAGER, 3, 160, 35, 0.23, false),
-			// Real: level 30, 2,000 health, 350 damage. Easily the nastiest
-			// thing in the Hub, and the numbers say so.
-			new Kind("Crypt Ghoul", Shape.ZOMBIE, 30, 2000, 350, 0.25, true),
-			// Real: level 60, 45,000 health, 800 damage. By far the worst thing
-			// in the game so far -- 3,000 health here even after scaling, which
-			// is a boss fight rather than a wandering zombie.
-			new Kind("Golden Ghoul", Shape.ZOMBIE, 60, 45000, 800, 0.25, true),
+			new Kind("Zombie", Shape.ZOMBIE, 1, 100, 20, 0.23),
+			new Kind("Zombie Villager", Shape.ZOMBIE_VILLAGER, 1, 120, 24, 0.25),
+			new Kind("Crypt Ghoul", Shape.ZOMBIE, 30, 2000, 350, 0.25),
+			new Kind("Golden Ghoul", Shape.ZOMBIE, 60, 45000, 800, 0.25),
 	};
 
-	// ------------------------------------------------------------- the sea
+	// ----------------------------------------------------------- spider's den
+
+	public static final Kind[] SPIDERS_DEN = {
+			new Kind("Splitter Spider", Shape.SPIDER, 2, 180, 30, 0.30),
+			new Kind("Weaver Spider", Shape.SPIDER, 3, 160, 35, 0.30),
+			new Kind("Dasher Spider", Shape.SPIDER, 4, 170, 55, 0.42),
+			new Kind("Spider Jockey", Shape.SPIDER, 4, 220, 55, 0.32),
+			new Kind("Jockey Skeleton", Shape.SKELETON, 4, 250, 40, 0.25),
+			new Kind("Voracious Spider", Shape.SPIDER, 10, 1000, 100, 0.34),
+			new Kind("Silverfish", Shape.SILVERFISH, 1, 50, 20, 0.30),
+			new Kind("Rain Slime", Shape.SLIME, 8, 200, 100, 0.28),
+	};
+
+	/** The Den's boss. Level 12, 3,000 health, 125 damage. */
+	public static final Kind BROODMOTHER =
+			new Kind("Broodmother", Shape.SPIDER, 12, 3000, 125, 0.30);
+
+	// ------------------------------------------------------ the park & ruins
+
+	/**
+	 * The Park's spirits and the Ruins' wolves.
+	 *
+	 * A Soul of the Alpha is level 55 with 31,150 health and 1,140 damage,
+	 * which makes the woodland the most dangerous place in the game -- far
+	 * worse than anything in the Spider's Den, despite looking like a forest.
+	 */
+	public static final Kind[] FOREST = {
+			new Kind("Wolf", Shape.WOLF, 15, 250, 90, 0.32),
+			new Kind("Pack Spirit", Shape.WOLF, 30, 6000, 240, 0.34),
+			new Kind("Howling Spirit", Shape.WOLF, 35, 7000, 400, 0.34),
+			new Kind("Old Wolf", Shape.WOLF, 50, 15000, 800, 0.36),
+			new Kind("Soul of the Alpha", Shape.WOLF, 55, 31150, 1140, 0.36),
+	};
+
+	// ----------------------------------------------------------- deep caverns
+
+	/**
+	 * The mining enemies.
+	 *
+	 * These belong to the Deep Caverns, not the Gold Mine: the Gold Mine is the
+	 * only public island in SkyBlock with no mobs at all, so nothing spawns
+	 * there however tempting it is to fill it.
+	 */
+	public static final Kind[] DEEP_CAVERNS = {
+			new Kind("Sneaky Creeper", Shape.CREEPER, 3, 120, 80, 0.25),
+			new Kind("Emerald Slime", Shape.SLIME, 5, 80, 70, 0.26),
+			new Kind("Lapis Zombie", Shape.ZOMBIE, 8, 200, 50, 0.23),
+			new Kind("Redstone Pigman", Shape.PIGLIN, 10, 250, 75, 0.25),
+			new Kind("Miner Zombie", Shape.ZOMBIE, 15, 250, 200, 0.25),
+			new Kind("Miner Skeleton", Shape.SKELETON, 15, 250, 150, 0.25),
+	};
+
+	// -------------------------------------------------------------- the end
+
+	public static final Kind[] END = {
+			new Kind("Endermite", Shape.ENDERMITE, 37, 2000, 400, 0.30),
+			new Kind("Enderman", Shape.ENDERMAN, 42, 4500, 500, 0.30),
+			new Kind("Watcher", Shape.SKELETON, 55, 9500, 500, 0.25),
+			new Kind("Obsidian Defender", Shape.ENDERMAN, 55, 10000, 200, 0.32),
+			new Kind("Zealot", Shape.ENDERMAN, 55, 13000, 1250, 0.30),
+	};
+
+	// --------------------------------------------------------------- nether
+
+	public static final Kind[] NETHER = {
+			new Kind("Wither Skeleton", Shape.WITHER_SKELETON, 70, 600000, 3000, 0.28),
+			new Kind("Magma Cube", Shape.MAGMA_CUBE, 75, 1000000, 3000, 0.26),
+			new Kind("Blaze", Shape.BLAZE, 80, 1000000, 3000, 0.24),
+	};
+
+	// -------------------------------------------------------------- the barn
+
+	/** Farm animals. Passive, so they never attack and never learn to. */
+	public static final Kind[] BARN = {
+			new Kind("Cow", Shape.COW, 1, 50, 0, 0.20),
+			new Kind("Pig", Shape.PIG, 1, 50, 0, 0.20),
+			new Kind("Chicken", Shape.CHICKEN, 1, 50, 0, 0.20),
+	};
+
+	// -------------------------------------------------------------- the sea
 
 	/**
 	 * What comes out of the water when you fish.
 	 *
-	 * On Hypixel these are pulled up by fishing rather than found standing
-	 * about, and the low ones are the whole early fishing game. Levels are the
-	 * wiki's; only the Sea Walker publishes health and damage.
+	 * Levels are the wiki's list of sea creatures; only the Sea Walker
+	 * publishes health and damage, so the rest are placed around it by level.
 	 */
 	public static final Kind[] SEA = {
-			new Kind("Squid", Shape.DROWNED, 1, 60, 8, 0.20, false),
-			new Kind("Sea Walker", Shape.DROWNED, 4, 100, 10, 0.22, true),
-			new Kind("Sea Witch", Shape.WITCH, 15, 500, 60, 0.22, false),
-			new Kind("Sea Archer", Shape.SKELETON, 15, 450, 55, 0.24, false),
-			new Kind("Catfish", Shape.DROWNED, 23, 800, 90, 0.26, false),
-			new Kind("Sea Leech", Shape.DROWNED, 30, 1200, 120, 0.24, false),
-			new Kind("Guardian Defender", Shape.GUARDIAN, 45, 3000, 250, 0.22, false),
-			new Kind("Deep Sea Protector", Shape.GUARDIAN, 60, 8000, 400, 0.22, false),
-	};
-
-	// ------------------------------------------------------------- the forest
-
-	/**
-	 * The Park's spirits, from its caves.
-	 *
-	 * Real: a Pack Spirit is level 30 with 6,000 health and 300 damage, which
-	 * makes the Park far more dangerous than it looks -- worse than a Crypt
-	 * Ghoul. The other two are estimated around it.
-	 */
-	public static final Kind[] FOREST = {
-			new Kind("Pack Spirit", Shape.WOLF, 30, 6000, 300, 0.30, true),
-			new Kind("Howling Spirit", Shape.WOLF, 32, 7000, 320, 0.32, false),
-			new Kind("Soul of the Alpha", Shape.WOLF, 40, 12000, 450, 0.34, false),
-	};
-
-	// --------------------------------------------------------- the gold mine
-
-	/**
-	 * The Gold Mine.
-	 *
-	 * Its wiki page lists the ore and the NPCs but no mobs at all, so these are
-	 * named for the place and estimated from its Mining 1 requirement -- an
-	 * early area, so early-game enemies. Every one is marked as a guess.
-	 */
-	public static final Kind[] GOLD_MINE = {
-			new Kind("Cave Spider", Shape.SPIDER, 5, 200, 40, 0.32, false),
-			new Kind("Mine Zombie", Shape.ZOMBIE, 6, 250, 45, 0.23, false),
-			new Kind("Mine Skeleton", Shape.SKELETON, 6, 250, 45, 0.25, false),
+			new Kind("Squid", Shape.DROWNED, 1, 60, 8, 0.20),
+			new Kind("Sea Walker", Shape.DROWNED, 4, 100, 10, 0.22),
+			new Kind("Sea Witch", Shape.WITCH, 15, 500, 60, 0.22),
+			new Kind("Sea Archer", Shape.SKELETON, 15, 450, 55, 0.24),
+			new Kind("Catfish", Shape.DROWNED, 23, 800, 90, 0.26),
+			new Kind("Sea Leech", Shape.DROWNED, 30, 1200, 120, 0.24),
+			new Kind("Guardian Defender", Shape.GUARDIAN, 45, 3000, 250, 0.22),
+			new Kind("Deep Sea Protector", Shape.GUARDIAN, 60, 8000, 400, 0.22),
 	};
 
 	// ---------------------------------------------------------------- spawning
@@ -168,13 +198,26 @@ public final class Mobs {
 	public static void spawn(ServerLevel level, BlockPos where, Kind kind) {
 		EntityType<? extends Entity> type = switch (kind.shape()) {
 			case SPIDER -> EntityType.SPIDER;
+			case CAVE_SPIDER -> EntityType.CAVE_SPIDER;
 			case ZOMBIE -> EntityType.ZOMBIE;
 			case ZOMBIE_VILLAGER -> EntityType.ZOMBIE_VILLAGER;
 			case SKELETON -> EntityType.SKELETON;
-			case DROWNED -> EntityType.DROWNED;      // the sea creatures
+			case SILVERFISH -> EntityType.SILVERFISH;
+			case SLIME -> EntityType.SLIME;
+			case WOLF -> EntityType.WOLF;
+			case DROWNED -> EntityType.DROWNED;
 			case GUARDIAN -> EntityType.GUARDIAN;
-			case WOLF -> EntityType.WOLF;            // the Park's spirits
 			case WITCH -> EntityType.WITCH;
+			case ENDERMAN -> EntityType.ENDERMAN;
+			case ENDERMITE -> EntityType.ENDERMITE;
+			case WITHER_SKELETON -> EntityType.WITHER_SKELETON;
+			case BLAZE -> EntityType.BLAZE;
+			case MAGMA_CUBE -> EntityType.MAGMA_CUBE;
+			case CREEPER -> EntityType.CREEPER;
+			case PIGLIN -> EntityType.ZOMBIFIED_PIGLIN;
+			case COW -> EntityType.COW;
+			case PIG -> EntityType.PIG;
+			case CHICKEN -> EntityType.CHICKEN;
 		};
 
 		Entity entity = type.create(level, EntitySpawnReason.COMMAND);
@@ -183,18 +226,21 @@ public final class Mobs {
 		}
 		mob.snapTo(where.getX() + 0.5, where.getY(), where.getZ() + 0.5, 0.0f, 0.0f);
 
-		// "[Lv30] Crypt Ghoul", the way the game writes it. Red once a mob is
-		// genuinely dangerous, so you can tell before it reaches you.
+		// "[Lv30] Crypt Ghoul", the way the game writes it, coloured by how bad
+		// it is -- so you can tell from across a room what you are looking at.
 		mob.setCustomName(Component.literal("[Lv" + kind.level() + "] " + kind.name())
-				.withStyle(kind.level() >= 10 ? ChatFormatting.RED : ChatFormatting.GRAY));
+				.withStyle(colourFor(kind.level())));
 		mob.setCustomNameVisible(true);
 
-		double health = Math.max(4, kind.health() / HEALTH_SCALE);
-		double damage = Math.max(1, kind.damage() / DAMAGE_SCALE);
-
+		double health = Math.max(MIN_HEALTH, kind.health() / HEALTH_SCALE);
 		set(mob, Attributes.MAX_HEALTH, health);
 		mob.setHealth((float) health);
-		set(mob, Attributes.ATTACK_DAMAGE, damage);
+
+		// Passive animals keep their zero, so a cow never learns to fight back.
+		if (kind.damage() > 0) {
+			set(mob, Attributes.ATTACK_DAMAGE,
+					Math.max(MIN_DAMAGE, kind.damage() / DAMAGE_SCALE));
+		}
 		set(mob, Attributes.MOVEMENT_SPEED, kind.speed());
 
 		// Persistent, so an area keeps its enemies instead of quietly emptying
@@ -203,6 +249,20 @@ public final class Mobs {
 			asMob.setPersistenceRequired();
 		}
 		level.addFreshEntity(mob);
+	}
+
+	/** Grey for harmless, yellow for real, red for dangerous, dark red for worse. */
+	private static ChatFormatting colourFor(int level) {
+		if (level >= 50) {
+			return ChatFormatting.DARK_RED;
+		}
+		if (level >= 25) {
+			return ChatFormatting.RED;
+		}
+		if (level >= 8) {
+			return ChatFormatting.YELLOW;
+		}
+		return ChatFormatting.GRAY;
 	}
 
 	private static void set(LivingEntity entity, Holder<Attribute> what, double value) {
