@@ -83,7 +83,7 @@ public final class Areas {
 				if (!inside(player, gate)) {
 					continue;
 				}
-				int has = Skills.level(Skills.xp(player, gate.skill()));
+				int has = Skills.levelIn(player, gate.skill());
 				if (has >= gate.level()) {
 					continue;
 				}

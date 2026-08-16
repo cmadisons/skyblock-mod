@@ -3,14 +3,11 @@ package com.example;
 import java.util.HashMap;
 import java.util.Map;
 
-import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.serialization.Codec;
 
 import net.fabricmc.fabric.api.attachment.v1.AttachmentRegistry;
 import net.fabricmc.fabric.api.attachment.v1.AttachmentType;
 
-import net.minecraft.commands.CommandSourceStack;
-import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Item;
@@ -162,113 +159,28 @@ public final class Economy {
 	public static String pretty(long n) {
 		return String.format("%,d", n);
 	}
-
 	/**
-	 * Register /coins, /sell and /skills.
+	 * Sell whatever the player is holding.
 	 *
-	 * All three refuse outside Survival, for the same reason the rest of the
-	 * mod does: selling things you spawned in Creative isn't an economy.
+	 * The shopkeeper's half of what /sell used to do. Unsellable things are
+	 * left exactly where they are rather than quietly eaten, so this can never
+	 * cost you a tool.
 	 */
-	public static void registerCommands(CommandDispatcher<CommandSourceStack> dispatcher) {
-		dispatcher.register(Commands.literal("coins").executes(ctx -> {
-			ServerPlayer player = ctx.getSource().getPlayerOrException();
-			if (blocked(ctx)) {
-				return 0;
-			}
-			ctx.getSource().sendSuccess(() -> Component.literal(
-					"§6" + pretty(coins(player)) + " coins"), false);
-			return 1;
-		}));
-
-		dispatcher.register(Commands.literal("sell")
-				// /sell — just what you're holding
-				.executes(ctx -> sell(ctx, false))
-				// /sell all — everything sellable in your inventory
-				.then(Commands.literal("all").executes(ctx -> sell(ctx, true))));
-
-		dispatcher.register(Commands.literal("skills").executes(ctx -> {
-			ServerPlayer player = ctx.getSource().getPlayerOrException();
-			if (blocked(ctx)) {
-				return 0;
-			}
-			ctx.getSource().sendSuccess(() -> Component.literal("§6Skills"), false);
-			for (String skill : Skills.ALL) {
-				long xp = Skills.xp(player, skill);
-				int level = Skills.level(xp);
-				long need = Skills.xpForLevel(level + 1) - xp;
-				ctx.getSource().sendSuccess(() -> Component.literal(
-						String.format("  %-9s §elevel %d §7(%s xp, %s to go)",
-								skill, level, pretty(xp), pretty(need))), false);
-			}
-			return 1;
-		}));
-	}
-
-	/** True if the command shouldn't run here, having already said why. */
-	private static boolean blocked(com.mojang.brigadier.context.CommandContext<CommandSourceStack> ctx) {
-		try {
-			ServerPlayer player = ctx.getSource().getPlayerOrException();
-			if (SkyBlocksMod.allowed(player, ctx.getSource().getLevel())) {
-				return false;
-			}
-		} catch (Exception e) {
-			return true;
+	public static void sellHeld(ServerPlayer player) {
+		ItemStack held = player.getMainHandItem();
+		Long price = PRICES.get(held.getItem());
+		if (price == null || held.isEmpty()) {
+			player.sendSystemMessage(Component.literal(
+					"\u00a7cNothing there I have a price for. Compress it first \u2014 "
+							+ "blocks beat what goes into them."));
+			return;
 		}
-		ctx.getSource().sendFailure(Component.literal("Sky Blocks only works in Survival."));
-		return true;
-	}
-
-	/**
-	 * Sell either the held stack or the whole inventory.
-	 *
-	 * Unsellable things are left exactly where they are rather than being
-	 * quietly eaten, so /sell all can't cost you your tools.
-	 */
-	private static int sell(com.mojang.brigadier.context.CommandContext<CommandSourceStack> ctx,
-			boolean everything) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
-		ServerPlayer player = ctx.getSource().getPlayerOrException();
-		if (blocked(ctx)) {
-			return 0;
-		}
-
-		long earned = 0;
-		int sold = 0;
-
-		if (everything) {
-			for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
-				ItemStack stack = player.getInventory().getItem(slot);
-				Long price = PRICES.get(stack.getItem());
-				if (price == null || stack.isEmpty()) {
-					continue;
-				}
-				earned += price * stack.getCount();
-				sold += stack.getCount();
-				player.getInventory().setItem(slot, ItemStack.EMPTY);
-			}
-		} else {
-			ItemStack held = player.getMainHandItem();
-			Long price = PRICES.get(held.getItem());
-			if (price == null || held.isEmpty()) {
-				ctx.getSource().sendFailure(Component.literal(
-						"The shop doesn't buy that. Try /sell all, or compress it first."));
-				return 0;
-			}
-			earned = price * held.getCount();
-			sold = held.getCount();
-			held.setCount(0);
-		}
-
-		if (sold == 0) {
-			ctx.getSource().sendFailure(Component.literal("Nothing in there the shop wants."));
-			return 0;
-		}
-
+		long earned = price * held.getCount();
+		int sold = held.getCount();
+		held.setCount(0);
 		give(player, earned);
-		final long total = earned;
-		final int count = sold;
-		ctx.getSource().sendSuccess(() -> Component.literal(
-				"§aSold " + count + " for §6" + pretty(total) + " coins§a. "
-						+ "You now have §6" + pretty(coins(player)) + "§a."), false);
-		return 1;
+		player.sendSystemMessage(Component.literal(
+				"\u00a7aSold " + sold + " for \u00a76" + pretty(earned) + " coins\u00a7a. "
+						+ "You now have \u00a76" + pretty(coins(player)) + "\u00a7a."));
 	}
 }

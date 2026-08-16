@@ -1,15 +1,10 @@
 package com.example;
 
-import com.mojang.brigadier.CommandDispatcher;
-
 import net.fabricmc.api.ModInitializer;
-import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.player.UseItemCallback;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 
-import net.minecraft.commands.CommandSourceStack;
-import net.minecraft.commands.Commands;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
@@ -52,8 +47,18 @@ public class SkyBlocksMod implements ModInitializer {
 	@Override
 	public void onInitialize() {
 		Minions.register();
+		// Everything SkyBlock has that Minecraft does not: five hundred items,
+		// the blocks, and a token for every person in the world. Registered
+		// before anything else touches a registry.
+		SkyItems.register();
+		NpcTokens.register();
+		MobTokens.register();
+		XpBoosts.register();
+		SkyTabs.register();
 		Skills.registerHooks();
+		Skills.registerCrafting();
 		Skills.registerBreeding();
+		Skills.registerMoreWays();
 		Npcs.registerInteraction();
 		Menu.registerKeepInSlot();
 		// Right-clicking the star in slot nine opens the SkyBlock Menu.
@@ -67,13 +72,13 @@ public class SkyBlocksMod implements ModInitializer {
 			}
 			return net.minecraft.world.InteractionResult.PASS;
 		});
-		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> onJoin(handler.getPlayer()));
-		CommandRegistrationCallback.EVENT.register((dispatcher, access, env) -> {
-			registerCommands(dispatcher);
-			registerHubCommand(dispatcher);
-			Economy.registerCommands(dispatcher);
-			Shops.register(dispatcher);
+		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
+			onJoin(handler.getPlayer());
+			// Skill rewards are transient attribute modifiers, so they have to be
+			// put back every time somebody logs in.
+			Skills.applyRewards(handler.getPlayer());
 		});
+		// No commands. See the note on this class.
 		// Portals aren't real blocks, so somebody has to watch for a player
 		// standing in one. See Portals.tick -- it is deliberately cheap.
 		ServerTickEvents.END_SERVER_TICK.register(server -> {
@@ -85,9 +90,14 @@ public class SkyBlocksMod implements ModInitializer {
 					Areas.tick(world);
 					Warps.tick(world);
 					Quests.tick(world);
+					HubEdit.tick(world);
 				}
 			}
 		});
+		// Anything changed in the last few seconds is written out here rather
+		// than lost, since a quit is the most likely end to a building session.
+		net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STOPPING
+				.register(server -> HubEdit.save());
 		LOGGER.info("Sky Blocks loaded.");
 	}
 
@@ -142,29 +152,24 @@ public class SkyBlocksMod implements ModInitializer {
 	}
 
 	/**
-	 * Sky Blocks runs in Survival -- and in Creative if Blueprint is installed.
+	 * Sky Blocks runs in Survival and in Creative. Not in Hardcore.
 	 *
-	 * Creative would normally make the whole thing pointless: the game is about
-	 * having almost nothing, and Creative hands you everything. So it is shut
-	 * out, and Hardcore with it.
+	 * Creative used to be shut out, on the grounds that a game about having
+	 * nothing is pointless when you are handed everything. That was right about
+	 * playing and wrong about building: the Hub this mod invents is not the Hub
+	 * you remember, and the only way to fix that is to go and fix it, which
+	 * takes Creative. So Creative is now the editor -- everything you change in
+	 * the Hub is kept and comes back in every world you make. See
+	 * {@link HubEdit}.
 	 *
-	 * The exception is Blueprint. That mod exists so you can build the real
-	 * game's buildings by hand and save them, and you plainly cannot do that
-	 * with a wooden pickaxe and no blocks. So having Blueprint installed is
-	 * taken as saying "I am here to build, not to play" and Creative is let
-	 * through.
-	 *
-	 * Take Blueprint out of the mods folder and Sky Blocks is Survival-only
-	 * again, exactly as before.
+	 * Hardcore stays out. One life and a void world is not a game, it is a
+	 * countdown.
 	 */
 	public static boolean allowed(ServerPlayer player, ServerLevel level) {
 		if (level.getLevelData().isHardcore()) {
 			return false;
 		}
-		if (player.gameMode() == GameType.SURVIVAL) {
-			return true;
-		}
-		return player.gameMode() == GameType.CREATIVE && buildMode();
+		return player.gameMode() == GameType.SURVIVAL || player.gameMode() == GameType.CREATIVE;
 	}
 
 	/** Is Blueprint installed? If so, Creative counts as build mode. */
@@ -187,57 +192,6 @@ public class SkyBlocksMod implements ModInitializer {
 			}
 		}
 		return true;
-	}
-
-	/**
-	 * /hub — jump straight to the Hub.
-	 *
-	 * A builder's tool rather than part of the game.
-	 *
-	 * It deliberately has no permission requirement. Gating it behind operator
-	 * rights sounded right, but a single-player world with cheats switched off
-	 * gives you no rights at all -- so the command simply didn't exist, which
-	 * is no use to anybody. It stays available and says "builder command" when
-	 * used, so it's obvious it isn't meant to be part of playing properly.
-	 */
-	private static void registerHubCommand(CommandDispatcher<CommandSourceStack> dispatcher) {
-		dispatcher.register(Commands.literal("hub")
-				.executes(ctx -> {
-					ServerPlayer player = ctx.getSource().getPlayerOrException();
-					ServerLevel level = ctx.getSource().getLevel();
-					if (!Hub.exists(level)) {
-						Hub.build(level);
-						ctx.getSource().sendSuccess(
-								() -> Component.literal("Built the Hub."), false);
-					}
-					BlockPos to = Hub.arrival();
-					player.teleportTo(to.getX() + 0.5, to.getY(), to.getZ() + 0.5);
-					ctx.getSource().sendSuccess(
-							() -> Component.literal("§7Warped to the Hub. (builder command)"), false);
-					return 1;
-				}));
-	}
-
-	/** /skyblock island — drops another island where you are standing. */
-	private static void registerCommands(CommandDispatcher<CommandSourceStack> dispatcher) {
-		dispatcher.register(Commands.literal("skyblock")
-				.then(Commands.literal("island")
-						.executes(ctx -> {
-							ServerPlayer player = ctx.getSource().getPlayerOrException();
-							ServerLevel level = ctx.getSource().getLevel();
-							if (!allowed(player, level)) {
-								ctx.getSource().sendFailure(Component.literal(
-										"Sky Blocks only works in Survival."));
-								return 0;
-							}
-							// Built at your feet, so it appears where you are looking.
-							BlockPos where = player.blockPosition().below();
-							BlockPos stand = Island.build(level, where);
-							player.teleportTo(stand.getX() + 0.5, stand.getY(), stand.getZ() + 0.5);
-							ctx.getSource().sendSuccess(
-									() -> Component.literal("New island built."), false);
-							return 1;
-						})));
 	}
 
 	public static Identifier id(String path) {

@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "skyblocks:block/crystal_fragment_block"
+    }
+  }
+}

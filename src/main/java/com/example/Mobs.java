@@ -155,20 +155,36 @@ public final class Mobs {
 	// -------------------------------------------------------------- the sea
 
 	/**
-	 * What comes out of the water when you fish.
+	 * What comes out of the water when you fish: the Basic pool, in full.
 	 *
-	 * Levels are the wiki's list of sea creatures; only the Sea Walker
-	 * publishes health and damage, so the rest are placed around it by level.
+	 * The levels here are the Fishing skill each one needs, which is what the
+	 * wiki's sea creature table actually publishes -- and they were wrong
+	 * before. A Sea Witch is Fishing 7, not 15; a Catfish is 13, not 23; a
+	 * Guardian Defender is 17, not 45. Getting those right matters more than it
+	 * sounds, because the whole pool is a ladder you climb by fishing, and a
+	 * ladder with the rungs in the wrong places is not the same ladder.
+	 *
+	 * Two were missing entirely and are now here: the Rider of the Deep at 11,
+	 * and the Water Hydra at 19 -- the Legendary of the pool, and the rarest
+	 * thing an ordinary rod in ordinary water will ever produce, at 0.42%.
+	 *
+	 * Health and damage are still placed by rarity rather than quoted, because
+	 * the sea creature tables give weight and chance and skill requirement and
+	 * not those two. The order is right even where the absolute numbers are
+	 * this mod's own: a Water Hydra is the worst thing in the pool and reads
+	 * that way.
 	 */
 	public static final Kind[] SEA = {
 			new Kind("Squid", Shape.DROWNED, 1, 60, 8, 0.20),
-			new Kind("Sea Walker", Shape.DROWNED, 4, 100, 10, 0.22),
-			new Kind("Sea Witch", Shape.WITCH, 15, 500, 60, 0.22),
-			new Kind("Sea Archer", Shape.SKELETON, 15, 450, 55, 0.24),
-			new Kind("Catfish", Shape.DROWNED, 23, 800, 90, 0.26),
-			new Kind("Sea Leech", Shape.DROWNED, 30, 1200, 120, 0.24),
-			new Kind("Guardian Defender", Shape.GUARDIAN, 45, 3000, 250, 0.22),
-			new Kind("Deep Sea Protector", Shape.GUARDIAN, 60, 8000, 400, 0.22),
+			new Kind("Sea Walker", Shape.DROWNED, 1, 100, 10, 0.22),
+			new Kind("Sea Witch", Shape.WITCH, 7, 320, 45, 0.22),
+			new Kind("Sea Archer", Shape.SKELETON, 9, 380, 55, 0.24),
+			new Kind("Rider of the Deep", Shape.DROWNED, 11, 500, 70, 0.23),
+			new Kind("Catfish", Shape.DROWNED, 13, 800, 90, 0.26),
+			new Kind("Sea Leech", Shape.DROWNED, 16, 1200, 120, 0.24),
+			new Kind("Guardian Defender", Shape.GUARDIAN, 17, 3000, 250, 0.22),
+			new Kind("Deep Sea Protector", Shape.GUARDIAN, 18, 8000, 400, 0.22),
+			new Kind("Water Hydra", Shape.GUARDIAN, 19, 25000, 900, 0.24),
 	};
 
 	// ---------------------------------------------------------------- spawning

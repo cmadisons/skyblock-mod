@@ -146,7 +146,7 @@ public final class Fishing {
 		// Fishing has no skill of its own here -- these seven have Hunting
 		// instead, and catching things out of the water is the nearest thing
 		// to it, so that is where the experience goes.
-		Skills.add(player, Skills.HUNTING, caught.xp());
+		Skills.add(player, Skills.FISHING, caught.xp());
 
 		player.sendSystemMessage(Component.literal("")
 				.append(Component.literal(shout + " ").withStyle(colour))

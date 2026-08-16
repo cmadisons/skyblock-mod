@@ -5,15 +5,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.serialization.Codec;
 
 import net.fabricmc.fabric.api.attachment.v1.AttachmentRegistry;
 import net.fabricmc.fabric.api.attachment.v1.AttachmentType;
 
 import net.minecraft.ChatFormatting;
-import net.minecraft.commands.CommandSourceStack;
-import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -103,7 +100,7 @@ public final class Quests {
 			new Quest("The End Race", Skills.COMBAT, 12, 0, "Guber",
 					"Run the End Race."),
 			new Quest("Explorer", "", 0, 50, "",
-					"Find every location. Try /warp."),
+					"Find every location. Fast Travel is in the menu."),
 	};
 
 	/** Which quests a player has finished, by name. */
@@ -158,7 +155,7 @@ public final class Quests {
 			}
 			return false;
 		}
-		return Skills.level(Skills.xp(player, quest.skill())) >= quest.level();
+		return Skills.levelIn(player, quest.skill()) >= quest.level();
 	}
 
 	/** Mark it done, pay it, and make something of it. */
@@ -181,6 +178,52 @@ public final class Quests {
 				SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 0.6f, 1.2f);
 	}
 
+	/** The quest of that name, or null if this mod doesn't have one. */
+	public static Quest byName(String name) {
+		for (Quest quest : ALL) {
+			if (quest.name().equals(name)) {
+				return quest;
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Somebody has just told you about their quest.
+	 *
+	 * The NPCs hand out the quests they hand out in the game, and this is what
+	 * happens when they do: you are told what it asks for and what it pays.
+	 * Nothing is unlocked by it, because nothing needs to be -- a quest here
+	 * finishes when you have actually done the thing, whether or not anybody
+	 * told you to. Being told just means you know it exists.
+	 *
+	 * That is why it says COMPLETED for one you have already finished rather
+	 * than pretending to offer it again.
+	 */
+	public static void offer(ServerPlayer player, String name) {
+		Quest quest = byName(name);
+		if (quest == null) {
+			return;
+		}
+		if (done(player, quest)) {
+			player.sendSystemMessage(Component.literal(
+					"  §8[§aCOMPLETED§8] §7" + quest.name()));
+			return;
+		}
+		player.sendSystemMessage(Component.literal("")
+				.append(Component.literal("  QUEST  ").withStyle(ChatFormatting.YELLOW))
+				.append(Component.literal(quest.name()).withStyle(ChatFormatting.WHITE)));
+		player.sendSystemMessage(Component.literal("  §7" + quest.what()));
+		if (!quest.skill().isEmpty()) {
+			player.sendSystemMessage(Component.literal(
+					"  §8Needs " + quest.skill() + " " + quest.level()));
+		}
+		if (quest.coins() > 0) {
+			player.sendSystemMessage(Component.literal(
+					"  §8Reward: §6" + Economy.pretty(quest.coins()) + " coins"));
+		}
+	}
+
 	/** The quests still to do, in order, for the log and the menu. */
 	public static List<Quest> remaining(ServerPlayer player) {
 		List<Quest> left = new ArrayList<>();
@@ -193,25 +236,4 @@ public final class Quests {
 	}
 
 	/** /quests — the log. */
-	public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-		dispatcher.register(Commands.literal("quests").executes(ctx -> {
-			ServerPlayer player = ctx.getSource().getPlayerOrException();
-			ctx.getSource().sendSuccess(() -> Component.literal(
-					"§6Quest Log §7— " + completed(player) + " of " + ALL.length + " done"), false);
-
-			for (Quest quest : ALL) {
-				boolean finished = done(player, quest);
-				String need = quest.skill().isEmpty() ? ""
-						: " §8(" + quest.skill() + " " + quest.level() + ")";
-				ctx.getSource().sendSuccess(() -> Component.literal(
-						(finished ? "  §a✔ " : "  §e☐ ") + quest.name() + need), false);
-				if (!finished) {
-					ctx.getSource().sendSuccess(() -> Component.literal(
-							"      §7" + quest.what()
-									+ (quest.who().isEmpty() ? "" : " §8— " + quest.who())), false);
-				}
-			}
-			return 1;
-		}));
-	}
 }

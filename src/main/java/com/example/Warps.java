@@ -1,13 +1,7 @@
 package com.example;
 
-import com.mojang.brigadier.CommandDispatcher;
-import com.mojang.brigadier.arguments.StringArgumentType;
-import com.mojang.brigadier.suggestion.SuggestionProvider;
 
 import net.minecraft.ChatFormatting;
-import net.minecraft.commands.CommandSourceStack;
-import net.minecraft.commands.Commands;
-import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -47,14 +41,6 @@ public final class Warps {
 	/** Where the whole grid starts, well away from the island and Hub. */
 	private static final BlockPos ORIGIN = new BlockPos(4000, 64, 4000);
 
-	private static final SuggestionProvider<CommandSourceStack> NAMES = (ctx, builder) ->
-			SharedSuggestionProvider.suggest(
-					java.util.Arrays.stream(Locations.ALL)
-							.map(place -> place.name().replace(' ', '_'))
-							.sorted()
-							.toList(),
-					builder);
-
 	/** Where a place sits on the grid. Fixed by its position in the list. */
 	public static BlockPos siteOf(Locations.Place place) {
 		int index = 0;
@@ -72,64 +58,40 @@ public final class Warps {
 		return !level.getBlockState(siteOf(place).below()).isAir();
 	}
 
-	public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-		dispatcher.register(Commands.literal("warp")
-				// /warp — everything you can reach, and what the rest need.
-				.executes(ctx -> {
-					ServerPlayer player = ctx.getSource().getPlayerOrException();
-					ctx.getSource().sendSuccess(() -> Component.literal(
-							"§6Places §7— /warp <name>"), false);
-					for (Locations.Place place : Locations.ALL) {
-						int has = place.skill().isEmpty() ? 0
-								: Skills.level(Skills.xp(player, place.skill()));
-						boolean open = place.openTo(has);
-						String need = place.skill().isEmpty() ? ""
-								: " §8(" + place.skill() + " " + place.level() + ")";
-						ctx.getSource().sendSuccess(() -> Component.literal(
-								(open ? "  §a✔ " : "  §8✘ ") + place.name() + need), false);
-					}
-					return 1;
-				})
-				// /warp buildall — put every place up, one a second.
-				.then(Commands.literal("buildall").executes(ctx -> {
-					buildAll(ctx.getSource().getLevel(), ctx.getSource().getPlayerOrException());
-					return 1;
-				}))
+	/**
+	 * Go to a place, building it first if nobody has been there yet.
+	 *
+	 * What /warp used to do, now reached from Fast Travel in the menu. The
+	 * skill gate is checked here rather than by the caller, so there is one
+	 * place that decides whether you are allowed somewhere.
+	 */
+	public static boolean travel(ServerPlayer player, Locations.Place place) {
+		if (!(player.level() instanceof ServerLevel level)) {
+			return false;
+		}
+		int has = place.skill().isEmpty() ? 0 : Skills.levelIn(player, place.skill());
+		if (!place.openTo(has)) {
+			player.sendSystemMessage(Component.literal(
+					"\u00a7c" + place.name() + " needs " + place.skill() + " level "
+							+ place.level() + ". You are level " + has + "."));
+			return false;
+		}
+		if (!built(level, place)) {
+			build(level, place);
+			player.sendSystemMessage(Component.literal("\u00a77Built " + place.name() + "."));
+		}
+		BlockPos site = siteOf(place);
+		player.teleportTo(site.getX() + 0.5, site.getY() + 1, site.getZ() + 0.5);
+		player.sendSystemMessage(Component.literal(
+				"\u00a7aWelcome to \u00a7f" + place.name() + "\u00a7a."));
+		player.closeContainer();
+		return true;
+	}
 
-				.then(Commands.argument("place", StringArgumentType.greedyString())
-						.suggests(NAMES)
-						.executes(ctx -> {
-							ServerPlayer player = ctx.getSource().getPlayerOrException();
-							String asked = StringArgumentType.getString(ctx, "place")
-									.replace('_', ' ');
-							Locations.Place place = Locations.byName(asked);
-							if (place == null) {
-								ctx.getSource().sendFailure(Component.literal(
-										"No place called " + asked + ". Type /warp to see them."));
-								return 0;
-							}
-
-							int has = place.skill().isEmpty() ? 0
-									: Skills.level(Skills.xp(player, place.skill()));
-							if (!place.openTo(has)) {
-								ctx.getSource().sendFailure(Component.literal(
-										place.name() + " needs " + place.skill() + " level "
-												+ place.level() + ". You are level " + has + "."));
-								return 0;
-							}
-
-							ServerLevel level = ctx.getSource().getLevel();
-							if (!built(level, place)) {
-								build(level, place);
-								ctx.getSource().sendSuccess(() -> Component.literal(
-										"§7Built " + place.name() + "."), false);
-							}
-							BlockPos site = siteOf(place);
-							player.teleportTo(site.getX() + 0.5, site.getY() + 1, site.getZ() + 0.5);
-							ctx.getSource().sendSuccess(() -> Component.literal(
-									"§aWelcome to §f" + place.name() + "§a."), false);
-							return 1;
-						})));
+	/** Can this player get into this place? */
+	public static boolean open(ServerPlayer player, Locations.Place place) {
+		int has = place.skill().isEmpty() ? 0 : Skills.levelIn(player, place.skill());
+		return place.openTo(has);
 	}
 
 	/**
@@ -294,7 +256,7 @@ public final class Warps {
 		int open = 0;
 		for (Locations.Place place : Locations.ALL) {
 			int has = place.skill().isEmpty() ? 0
-					: Skills.level(Skills.xp(player, place.skill()));
+					: Skills.levelIn(player, place.skill());
 			if (place.openTo(has)) {
 				open++;
 			}

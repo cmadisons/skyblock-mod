@@ -262,7 +262,7 @@ public final class Locations {
 			new Place("Fisherman's Hut", Ground.WATER, 14, "", 0, NOTHING,
 					new String[]{"Captain Baha", "Gavin"}, null),
 			// No requirement: your seven skills have no Fishing, since you
-			// replaced it with Taming, Hunting and HOTF.
+			// replaced it with Taming and Hunting.
 			new Place("Backwater Bayou", Ground.WATER, 22, "", 0, NOTHING,
 					new String[]{"Junker Joel", "Hattie", "Roddy"}, Mobs.SEA),
 			new Place("Jerry's Workshop", Ground.ICE, 24, "", 0,

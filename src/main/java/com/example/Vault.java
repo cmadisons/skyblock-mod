@@ -130,12 +130,20 @@ public final class Vault {
 
 	// ------------------------------------------------------------ collections
 
-	/** Record that a player gathered some of something. */
+	/**
+	 * Record that a player gathered some of something.
+	 *
+	 * The count is only half of it: crossing 50, 100, 250 and so on is a
+	 * Collection tier, and a tier pays. See {@link Collections#check}, which is
+	 * called straight afterwards so the reward lands on the block that earned
+	 * it rather than the next time a menu is opened.
+	 */
 	public static void collect(ServerPlayer player, net.minecraft.world.item.Item item, long count) {
 		String name = BuiltInRegistries.ITEM.getKey(item).getPath();
 		Map<String, Long> all = new HashMap<>(player.getAttachedOrCreate(COLLECTIONS, HashMap::new));
 		all.merge(name, count, Long::sum);
 		player.setAttached(COLLECTIONS, all);
+		Collections.check(player, item);
 	}
 
 	public static Map<String, Long> collections(ServerPlayer player) {

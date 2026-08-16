@@ -111,7 +111,7 @@ public final class Menu {
 		long banked = Economy.bank(player);
 		int combined = 0;
 		for (String skill : Skills.ALL) {
-			combined += Skills.level(Skills.xp(player, skill));
+			combined += Skills.levelIn(player, skill);
 		}
 
 		// --- row 5: your stats ------------------------------------------------
@@ -122,10 +122,11 @@ public final class Menu {
 
 		// --- row 4: the main row ----------------------------------------------
 		page.setItem(at(2, 4), entry(Items.DIAMOND_SWORD, "Your Skills", ChatFormatting.GREEN,
-				"Combined level " + combined,
-				"Type /skills for the full list."));
+				"Skill average " + String.format("%.1f", Skills.average(player)),
+				"Combined level " + combined));
 		page.setItem(at(3, 4), entry(Items.PAINTING, "Collections", ChatFormatting.GREEN,
-				"Everything you have gathered."));
+				"Everything you have gathered.",
+				Collections.totalTiers(player) + " tiers earned."));
 		page.setItem(at(4, 4), entry(Items.BOOK, "Recipe Book", ChatFormatting.GREEN,
 				"What this mod adds that you can craft."));
 		page.setItem(at(5, 4), entry(Items.EXPERIENCE_BOTTLE, "SkyBlock Leveling",
@@ -148,7 +149,7 @@ public final class Menu {
 		page.setItem(at(7, 4), entry(Items.CLOCK, "Calendar and Events", ChatFormatting.YELLOW,
 				"Daily reward is ready once",
 				"per Minecraft day.",
-				"Type /daily."));
+				"Click to claim it."));
 		page.setItem(at(8, 4), entry(Items.CHEST, "Storage", ChatFormatting.GREEN,
 				Vault.vaultOpen(player)
 						? "Your Personal Vault. 27 slots."
@@ -156,21 +157,23 @@ public final class Menu {
 				"Kept in the Bank. Always safe."));
 
 		// --- row 3: your things -----------------------------------------------
-		page.setItem(at(3, 3), soon(Items.BUNDLE, "Your Bags"));
+		page.setItem(at(3, 3), entry(Items.BUNDLE, "Your Bags", ChatFormatting.GREEN,
+				"Storage and the Wardrobe hold",
+				"what your pockets cannot."));
 		page.setItem(at(4, 3), entry(Items.BONE, "Pets", ChatFormatting.GREEN,
 				Vault.pet(player).isEmpty() ? "None out." : Vault.pet(player) + " is out.",
-				"Unlocked at skill level 5."));
-		page.setItem(at(5, 3), entry(Items.CRAFTING_TABLE, "Crafting Table", ChatFormatting.WHITE,
-				"Minions are eight cobblestone",
-				"around any axe. Better axe,",
-				"faster minion."));
+				Pets.unlockedCount(player) + " of " + Pets.ALL.length + " unlocked",
+				"A pet out earns Taming XP."));
+		page.setItem(at(5, 3), entry(Items.EMERALD, "Bazaar", ChatFormatting.GREEN,
+				"Buy anything the shop deals in.",
+				"It charges double what it pays."));
 		page.setItem(at(6, 3), entry(Items.LEATHER_CHESTPLATE, "Wardrobe", ChatFormatting.GREEN,
 				"Keep an armour set for later."));
 		page.setItem(at(7, 3), entry(Items.GOLD_INGOT, "Personal Bank", ChatFormatting.GOLD,
 				"Carrying " + Economy.pretty(carried),
 				"Banked " + Economy.pretty(banked),
 				"Dying costs half of what you carry.",
-				"/bank deposit and /bank withdraw"));
+				"Click to deposit or withdraw."));
 
 		// --- row 1: the bottom row --------------------------------------------
 		page.setItem(at(3, 1), entry(Items.ENDER_PEARL, "Fast Travel", ChatFormatting.GREEN,
@@ -191,30 +194,49 @@ public final class Menu {
 				ChatFormatting.YELLOW,
 				"Claim one free every day.",
 				"A million coins and three items.",
-				"Click, or type /daily."));
+				"Click to claim."));
 
 		// ReadOnlyMenu, not a plain chest: the icons are real items, so without
 		// it you could walk off with the diamond sword behind "Your Skills".
 		show(player, "SkyBlock Menu", page, Menu::pressed);
 	}
 
-	/** What each button on the main menu does. */
+	/**
+	 * What each button on the main menu does.
+	 *
+	 * Every one of these used to be a line of text telling you a command to go
+	 * and type. There are no commands any more, so a button that describes one
+	 * would describe nothing -- each of these now does the thing.
+	 */
 	private static void pressed(ServerPlayer player, int slot) {
-		if (slot == at(3, 4)) {
+		if (slot == at(2, 4)) {
+			Pages.skills(player);
+		} else if (slot == at(3, 4)) {
 			Pages.collections(player);
 		} else if (slot == at(4, 4)) {
 			Pages.recipes(player);
+		} else if (slot == at(5, 4)) {
+			Pages.skills(player);
+		} else if (slot == at(6, 4)) {
+			Pages.quests(player);
+		} else if (slot == at(7, 4)) {
+			// Calendar and Events is where the daily lives.
+			Shops.claimDaily(player);
+			player.closeContainer();
 		} else if (slot == at(8, 4)) {
 			Pages.storage(player);
 		} else if (slot == at(4, 3)) {
 			Pages.pets(player);
+		} else if (slot == at(5, 3)) {
+			Pages.bazaar(player);
 		} else if (slot == at(6, 3)) {
 			Pages.wardrobe(player);
+		} else if (slot == at(7, 3)) {
+			Pages.bank(player);
 		} else if (slot == at(3, 1)) {
 			Pages.fastTravel(player);
 		} else if (slot == at(7, 1)) {
-			// The Booster Cookie is the daily reward, so pressing it claims it
-			// rather than telling you a command to go and type.
+			// The Booster Cookie is the daily reward, so pressing it claims it.
 			Shops.claimDaily(player);
 			player.closeContainer();
 		} else if (slot == at(5, 1)) {

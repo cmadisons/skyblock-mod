@@ -2,19 +2,10 @@ package com.example;
 
 import java.util.List;
 
-import com.mojang.brigadier.CommandDispatcher;
-import com.mojang.brigadier.arguments.IntegerArgumentType;
-import com.mojang.brigadier.arguments.StringArgumentType;
-import com.mojang.brigadier.context.CommandContext;
-import com.mojang.brigadier.exceptions.CommandSyntaxException;
-import com.mojang.brigadier.suggestion.SuggestionProvider;
 
-import net.minecraft.commands.CommandSourceStack;
-import net.minecraft.commands.Commands;
-import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -36,15 +27,6 @@ public final class Shops {
 
 	/** How long a Minecraft day is, in ticks. */
 	private static final long DAY = 24_000L;
-
-	/** Suggests only things the bazaar actually stocks. */
-	private static final SuggestionProvider<CommandSourceStack> STOCK = (ctx, builder) ->
-			SharedSuggestionProvider.suggest(
-					Economy.stock().stream()
-							.map(item -> BuiltInRegistries.ITEM.getKey(item).getPath())
-							.sorted()
-							.toList(),
-					builder);
 
 	/**
 	 * Sell everything sellable, for the Auctioneer.
@@ -135,54 +117,6 @@ public final class Shops {
 						+ surprise.getCount() + "x " + surprise.getHoverName().getString()));
 	}
 
-	public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-		daily(dispatcher);
-		bank(dispatcher);
-		bazaar(dispatcher);
-	}
-
-	// ------------------------------------------------------------------ daily
-
-	/**
-	 * /daily — a million coins and three items, once per Minecraft day.
-	 *
-	 * The four things are, as asked: the coins, something rare, something you
-	 * would only want later on, and one at random.
-	 */
-	private static void daily(CommandDispatcher<CommandSourceStack> dispatcher) {
-		dispatcher.register(Commands.literal("daily").executes(ctx -> {
-			ServerPlayer player = ctx.getSource().getPlayerOrException();
-
-			long today = ctx.getSource().getLevel().getGameTime() / DAY;
-			long last = player.getAttachedOrCreate(Economy.LAST_DAILY, () -> -1L);
-			if (last == today) {
-				ctx.getSource().sendFailure(Component.literal(
-						"Already claimed today. Come back tomorrow."));
-				return 0;
-			}
-			player.setAttached(Economy.LAST_DAILY, today);
-
-			Economy.give(player, DAILY_COINS);
-
-			// Something rare, something for later, and something random.
-			ItemStack rare = new ItemStack(Items.DIAMOND_BLOCK, 4);
-			ItemStack later = new ItemStack(Items.NETHERITE_SCRAP, 2);
-			ItemStack surprise = randomTreat(ctx.getSource().getLevel().getGameTime());
-
-			for (ItemStack prize : List.of(rare, later, surprise)) {
-				if (!player.getInventory().add(prize.copy())) {
-					player.drop(prize.copy(), false);      // full inventory, drop it
-				}
-			}
-
-			ctx.getSource().sendSuccess(() -> Component.literal(
-					"§aDaily claimed! §6" + Economy.pretty(DAILY_COINS) + " coins§a, "
-							+ "4 diamond blocks, 2 netherite scrap, and "
-							+ surprise.getCount() + "x " + surprise.getHoverName().getString()), false);
-			return 1;
-		}));
-	}
-
 	/**
 	 * One of a handful of treats, picked from the world clock.
 	 *
@@ -205,110 +139,66 @@ public final class Shops {
 	// ------------------------------------------------------------------- bank
 
 	/**
-	 * /bank — see it, put coins in, take coins out.
+	 * Move coins between pocket and bank.
+	 *
+	 * What /bank deposit and /bank withdraw used to do, now reachable from the
+	 * Personal Bank page. Refuses rather than going negative, and returns
+	 * whether it actually moved anything so the page can say so.
 	 *
 	 * Worth doing before anything dangerous: dying takes half of what you are
 	 * carrying and nothing at all of what is banked.
 	 */
-	private static void bank(CommandDispatcher<CommandSourceStack> dispatcher) {
-		dispatcher.register(Commands.literal("bank")
-				.executes(ctx -> {
-					ServerPlayer player = ctx.getSource().getPlayerOrException();
-					ctx.getSource().sendSuccess(() -> Component.literal(
-							"§6Bank: " + Economy.pretty(Economy.bank(player))
-									+ "§7 · carrying " + Economy.pretty(Economy.coins(player))), false);
-					return 1;
-				})
-				.then(Commands.literal("deposit")
-						.then(Commands.argument("amount", IntegerArgumentType.integer(1))
-								.executes(ctx -> move(ctx, true))))
-				.then(Commands.literal("withdraw")
-						.then(Commands.argument("amount", IntegerArgumentType.integer(1))
-								.executes(ctx -> move(ctx, false)))));
-	}
-
-	/** Shift coins between pocket and bank, refusing if there aren't enough. */
-	private static int move(CommandContext<CommandSourceStack> ctx, boolean depositing)
-			throws CommandSyntaxException {
-		ServerPlayer player = ctx.getSource().getPlayerOrException();
-		long amount = IntegerArgumentType.getInteger(ctx, "amount");
-
+	public static boolean move(ServerPlayer player, long amount, boolean depositing) {
+		if (amount <= 0) {
+			return false;
+		}
 		long pocket = Economy.coins(player);
 		long vault = Economy.bank(player);
-
 		if (depositing && amount > pocket) {
-			ctx.getSource().sendFailure(Component.literal(
-					"You're only carrying " + Economy.pretty(pocket) + "."));
-			return 0;
+			amount = pocket;                     // "deposit all" rather than a refusal
 		}
 		if (!depositing && amount > vault) {
-			ctx.getSource().sendFailure(Component.literal(
-					"The bank only holds " + Economy.pretty(vault) + "."));
-			return 0;
+			amount = vault;
 		}
-
+		if (amount <= 0) {
+			player.sendSystemMessage(Component.literal(depositing
+					? "\u00a7cNothing to deposit."
+					: "\u00a7cThe bank is empty."));
+			return false;
+		}
 		long shift = depositing ? amount : -amount;
 		player.setAttached(Economy.COINS, pocket - shift);
 		player.setAttached(Economy.BANK, vault + shift);
-
-		ctx.getSource().sendSuccess(() -> Component.literal(
-				"§a" + (depositing ? "Deposited " : "Withdrew ") + "§6" + Economy.pretty(amount)
-						+ "§a. Bank: §6" + Economy.pretty(Economy.bank(player))
-						+ "§a, carrying: §6" + Economy.pretty(Economy.coins(player))), false);
-		return 1;
+		player.sendSystemMessage(Component.literal(
+				"\u00a7a" + (depositing ? "Deposited " : "Withdrew ") + "\u00a76"
+						+ Economy.pretty(amount) + "\u00a7a. Bank: \u00a76"
+						+ Economy.pretty(Economy.bank(player)) + "\u00a7a, carrying: \u00a76"
+						+ Economy.pretty(Economy.coins(player))));
+		return true;
 	}
 
-    // ----------------------------------------------------------------- bazaar
+	// ----------------------------------------------------------------- bazaar
 
 	/**
-	 * /bazaar — buy anything the shop deals in.
+	 * Buy from the Bazaar.
 	 *
 	 * It charges double what it pays, which is what stops you buying and
 	 * selling the same item forever to make free money.
 	 */
-	private static void bazaar(CommandDispatcher<CommandSourceStack> dispatcher) {
-		dispatcher.register(Commands.literal("bazaar")
-				// No arguments: show what's on offer and what it costs.
-				.executes(ctx -> {
-					ctx.getSource().sendSuccess(() -> Component.literal(
-							"§6Bazaar §7— /bazaar buy <item> <amount>"), false);
-					Economy.stock().stream()
-							.map(item -> BuiltInRegistries.ITEM.getKey(item).getPath())
-							.sorted()
-							.forEach(name -> ctx.getSource().sendSuccess(() -> Component.literal(
-									"  §7" + name), false));
-					return 1;
-				})
-				.then(Commands.literal("buy")
-						.then(Commands.argument("item", StringArgumentType.word())
-								.suggests(STOCK)
-								.then(Commands.argument("amount", IntegerArgumentType.integer(1, 640))
-										.executes(Shops::buy)))));
-	}
-
-	private static int buy(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
-		ServerPlayer player = ctx.getSource().getPlayerOrException();
-		String name = StringArgumentType.getString(ctx, "item");
-		int amount = IntegerArgumentType.getInteger(ctx, "amount");
-
-		Item item = BuiltInRegistries.ITEM.getOptional(Identifier.withDefaultNamespace(name))
-				.orElse(null);
+	public static boolean buy(ServerPlayer player, Item item, int amount) {
 		Long each = item == null ? null : Economy.buyPrice(item);
 		if (each == null) {
-			ctx.getSource().sendFailure(Component.literal(
-					"The bazaar doesn't stock that. Type /bazaar to see what it has."));
-			return 0;
+			player.sendSystemMessage(Component.literal("\u00a7cThe Bazaar doesn't stock that."));
+			return false;
 		}
-
 		long cost = each * amount;
 		if (cost > Economy.coins(player)) {
-			ctx.getSource().sendFailure(Component.literal(
-					"That costs " + Economy.pretty(cost) + " and you have "
+			player.sendSystemMessage(Component.literal(
+					"\u00a7cThat costs \u00a76" + Economy.pretty(cost) + "\u00a7c and you have \u00a76"
 							+ Economy.pretty(Economy.coins(player))
-							+ ". Try /bank withdraw."));
-			return 0;
+							+ "\u00a7c. Withdraw some from the Bank."));
+			return false;
 		}
-
 		Economy.give(player, -cost);
 
 		// Hand it over a stack at a time, dropping anything that won't fit.
@@ -320,10 +210,9 @@ public final class Shops {
 				player.drop(batch, false);
 			}
 		}
-
-		ctx.getSource().sendSuccess(() -> Component.literal(
-				"§aBought §f" + amount + "x " + name + "§a for §6" + Economy.pretty(cost)
-						+ "§a. Left: §6" + Economy.pretty(Economy.coins(player))), false);
-		return 1;
+		player.sendSystemMessage(Component.literal(
+				"\u00a7aBought \u00a7f" + amount + "x " + new ItemStack(item).getHoverName().getString()
+						+ "\u00a7a for \u00a76" + Economy.pretty(cost) + "\u00a7a."));
+		return true;
 	}
 }

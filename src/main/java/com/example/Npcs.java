@@ -99,22 +99,27 @@ public final class Npcs {
 				return InteractionResult.SUCCESS;
 			}
 			if (who.equals(BAZAAR)) {
-				// Opens the stock list as a page you can look at.
-				Shops.openBazaar(serverPlayer);
+				// The real Bazaar page, not a list of things in chat.
+				Pages.bazaar(serverPlayer);
 				return InteractionResult.SUCCESS;
 			}
 			if (!who.equals(BANKER)) {
-				return InteractionResult.PASS;
+				// Anybody else from the catalogue says their piece. Checked
+				// after the three shopkeepers so opening a shop always wins
+				// over standing there talking about it.
+				return NpcTokens.talk(serverPlayer, who)
+						? InteractionResult.SUCCESS
+						: InteractionResult.PASS;
 			}
 
-			long carried = Economy.coins(serverPlayer);
-			long banked = Economy.bank(serverPlayer);
+			// The Banker opens the bank rather than reading you a command, the
+			// same way the Auctioneer sells and the Bazaar Trader trades. There
+			// are no commands left to read out.
 			serverPlayer.sendSystemMessage(Component.literal(
-					"§6" + BANKER + "§7: you're carrying §6" + Economy.pretty(carried)
-							+ "§7 and have §6" + Economy.pretty(banked) + "§7 with me."));
-			serverPlayer.sendSystemMessage(Component.literal(
-					"§7Use §f/bank deposit <amount>§7 — dying costs half of what you carry, "
-							+ "and none of what I hold."));
+					"§6" + BANKER + "§7: you're carrying §6" + Economy.pretty(Economy.coins(serverPlayer))
+							+ "§7 and have §6" + Economy.pretty(Economy.bank(serverPlayer))
+							+ "§7 with me. Dying costs half of what you carry, and none of what I hold."));
+			Pages.bank(serverPlayer);
 			return InteractionResult.SUCCESS;
 		});
 	}
